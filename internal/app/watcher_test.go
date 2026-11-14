@@ -142,7 +142,7 @@ func TestWatcher_IgnoresChmod(t *testing.T) {
 	defer func() { _ = w.Stop() }()
 
 	// Trigger the event handling path directly with a Chmod op.
-	w.handleEvent(fsnotify.Event{Name: target, Op: fsnotify.Chmod})
+	w.handleEvent(w.watcher, w.ctx, fsnotify.Event{Name: target, Op: fsnotify.Chmod})
 
 	select {
 	case p := <-changed:
@@ -162,7 +162,7 @@ func TestWatcher_HandleEventAfterStop(t *testing.T) {
 	}
 
 	// handleEvent on a stopped watcher must be a no-op (ctx is cancelled).
-	w.handleEvent(fsnotify.Event{
+	w.handleEvent(w.watcher, w.ctx, fsnotify.Event{
 		Name: filepath.Join(root, "x.go"),
 		Op:   fsnotify.Write,
 	})

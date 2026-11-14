@@ -67,12 +67,12 @@ func (w *fileWatcher) Start() error {
 
 	for _, dir := range w.dirs {
 		slog.Info("watching directory", "path", dir.Path)
-		if err := w.addRecursive(dir.Path); err != nil {
+		if err := w.addRecursive(fw, dir.Path); err != nil {
 			slog.Error("watch directory", "path", dir.Path, "error", err)
 		}
 	}
 
-	go w.run()
+	go w.run(fw, w.ctx)
 	return nil
 }
 
@@ -100,7 +100,7 @@ func (w *fileWatcher) Stop() error {
 	return nil
 }
 
-func (w *fileWatcher) addRecursive(root string) error {
+func (w *fileWatcher) addRecursive(fw *fsnotify.Watcher, root string) error {
 	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			slog.Error("walk directory", "path", path, "error", err)
@@ -109,7 +109,7 @@ func (w *fileWatcher) addRecursive(root string) error {
 		if !d.IsDir() {
 			return nil
 		}
-		if err := w.watcher.Add(path); err != nil {
+		if err := fw.Add(path); err != nil {
 			slog.Error("watch dir", "path", path, "error", err)
 			return filepath.SkipDir
 		}
@@ -117,9 +117,7 @@ func (w *fileWatcher) addRecursive(root string) error {
 	})
 }
 
-func (w *fileWatcher) run() {
-	fw := w.watcher
-	ctx := w.ctx
+func (w *fileWatcher) run(fw *fsnotify.Watcher, ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -128,7 +126,7 @@ func (w *fileWatcher) run() {
 			if !ok {
 				return
 			}
-			w.handleEvent(event)
+			w.handleEvent(fw, ctx, event)
 		case err, ok := <-fw.Errors:
 			if !ok {
 				return
@@ -138,20 +136,20 @@ func (w *fileWatcher) run() {
 	}
 }
 
-func (w *fileWatcher) handleEvent(event fsnotify.Event) {
+func (w *fileWatcher) handleEvent(fw *fsnotify.Watcher, ctx context.Context, event fsnotify.Event) {
 	slog.Debug("filesystem event", "path", event.Name, "op", event.Op.String())
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.ctx.Err() != nil {
+	if ctx.Err() != nil {
 		return
 	}
 
 	if event.Op == fsnotify.Create {
 		info, err := os.Stat(event.Name)
 		if err == nil && info.IsDir() {
-			_ = w.addRecursive(event.Name)
+			_ = w.addRecursive(fw, event.Name)
 		}
 	}
 

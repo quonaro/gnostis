@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/quonaro/gnostis/internal/app"
-	"github.com/quonaro/gnostis/internal/lock"
-	"github.com/quonaro/gnostis/internal/log"
 	mcp "github.com/quonaro/gnostis/internal/mcp"
 )
 
@@ -55,7 +53,7 @@ func setupLogOutput() io.Writer {
 
 func main() {
 	logOutput = setupLogOutput()
-	slog.SetDefault(slog.New(log.NewHandler(logOutput, slog.LevelInfo)))
+	slog.SetDefault(slog.New(newLogHandler(logOutput, slog.LevelInfo)))
 
 	cfg, err := loadConfig()
 	if err != nil {
@@ -68,7 +66,7 @@ func main() {
 	// stdio proxy that forwards all MCP messages to the primary instance
 	// over HTTP. This allows multiple editor windows to share a single
 	// gnostis process while keeping the stdio MCP config format.
-	flock := lock.New(cfg.DataDir)
+	flock := newFileLock(cfg.DataDir)
 	if err := flock.TryLock(); err != nil {
 		if stalePID := flock.StalePID(); stalePID > 0 {
 			slog.Info("removing stale lock file", "stale_pid", stalePID, "data_dir", cfg.DataDir)

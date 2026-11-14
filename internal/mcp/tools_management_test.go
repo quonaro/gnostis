@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/quonaro/gnostis/internal/progress"
+	"github.com/quonaro/gnostis/internal/status"
 )
 
 func TestGetIndexStatus(t *testing.T) {
@@ -124,10 +124,10 @@ func TestRemoveProject(t *testing.T) {
 func TestGetIndexStatusETA(t *testing.T) {
 	now := time.Now().UTC()
 	mock := &mockIndexer{
-		progressState: progress.State{
+		progressState: status.State{
 			JobID:       "job-eta",
-			Status:      progress.StatusRunning,
-			Phase:       progress.PhaseEmbedding,
+			Status:      status.StatusRunning,
+			Phase:       status.PhaseEmbedding,
 			Project:     "test",
 			StartedAt:   now.Add(-2 * time.Minute),
 			UpdatedAt:   now,

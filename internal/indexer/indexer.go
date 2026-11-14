@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/quonaro/gnostis/internal/directory"
-	"github.com/quonaro/gnostis/internal/project"
 )
 
 // FileInfo represents an indexed file with its content and metadata.
@@ -36,7 +35,7 @@ func New() *Indexer {
 }
 
 // Index walks the directory and returns files matching the indexing rules.
-func (idx *Indexer) Index(ctx context.Context, dir directory.Directory, proj project.Project) ([]FileInfo, error) {
+func (idx *Indexer) Index(ctx context.Context, dir directory.Directory, proj directory.Project) ([]FileInfo, error) {
 	var files []FileInfo
 
 	err := filepath.WalkDir(dir.Path, func(absPath string, d os.DirEntry, err error) error {

@@ -1,4 +1,4 @@
-package stats
+package status
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ import (
 )
 
 func TestStatsUpdateAndLoad(t *testing.T) {
-	s := New(db.OpenTestDB(t))
+	s := NewStats(db.OpenTestDB(t))
 
 	if err := s.Update("foo", 42, "nomic-embed-text"); err != nil {
 		t.Fatalf("update failed: %v", err)
@@ -32,7 +32,7 @@ func TestStatsUpdateAndLoad(t *testing.T) {
 }
 
 func TestStatsLoadMissing(t *testing.T) {
-	s := New(db.OpenTestDB(t))
+	s := NewStats(db.OpenTestDB(t))
 
 	loaded, err := s.Load()
 	if err != nil {
@@ -44,7 +44,7 @@ func TestStatsLoadMissing(t *testing.T) {
 }
 
 func TestStatsUpdateOverwrites(t *testing.T) {
-	s := New(db.OpenTestDB(t))
+	s := NewStats(db.OpenTestDB(t))
 
 	_ = s.Update("foo", 10, "nomic-embed-text")
 	before, _ := s.Load()

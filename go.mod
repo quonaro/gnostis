@@ -6,7 +6,6 @@ require github.com/bmatcuk/doublestar/v4 v4.6.1
 
 require (
 	github.com/ch-braun/go-spring-electrical-layout v0.3.0
-	github.com/coder/websocket v1.8.15
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/mark3labs/mcp-go v0.56.0
 	github.com/philippgille/chromem-go v0.7.0

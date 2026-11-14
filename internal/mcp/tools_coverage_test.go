@@ -8,21 +8,21 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/quonaro/gnostis/internal/coverage"
+	"github.com/quonaro/gnostis/internal/status"
 )
 
 type mockCoverageIndexer struct {
 	mockIndexer
-	statuses []coverage.Status
-	changes  []coverage.Change
+	statuses []status.CoverageStatus
+	changes  []status.CoverageChange
 	err      error
 }
 
-func (m *mockCoverageIndexer) CheckCoverage(_ context.Context, paths []string) []coverage.Status {
+func (m *mockCoverageIndexer) CheckCoverage(_ context.Context, paths []string) []status.CoverageStatus {
 	return m.statuses
 }
 
-func (m *mockCoverageIndexer) DetectChanges(_ context.Context, project string) ([]coverage.Change, error) {
+func (m *mockCoverageIndexer) DetectChanges(_ context.Context, project string) ([]status.CoverageChange, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -54,7 +54,7 @@ func TestCheckIndexCoverage_NotConfigured(t *testing.T) {
 
 func TestCheckIndexCoverage_Indexed(t *testing.T) {
 	mock := &mockCoverageIndexer{
-		statuses: []coverage.Status{
+		statuses: []status.CoverageStatus{
 			{Path: "/foo/bar.go", Status: "indexed"},
 		},
 	}
@@ -67,7 +67,7 @@ func TestCheckIndexCoverage_Indexed(t *testing.T) {
 		t.Fatalf("unexpected error result: %v", res.Content)
 	}
 
-	var got []coverage.Status
+	var got []status.CoverageStatus
 	if err := json.Unmarshal([]byte(extractText(t, res)), &got); err != nil {
 		t.Fatalf("unmarshal statuses: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestCheckIndexCoverage_Indexed(t *testing.T) {
 
 func TestCheckIndexCoverage_Stale(t *testing.T) {
 	mock := &mockCoverageIndexer{
-		statuses: []coverage.Status{
+		statuses: []status.CoverageStatus{
 			{Path: "/foo/bar.go", Status: "stale"},
 		},
 	}
@@ -88,7 +88,7 @@ func TestCheckIndexCoverage_Stale(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var got []coverage.Status
+	var got []status.CoverageStatus
 	if err := json.Unmarshal([]byte(extractText(t, res)), &got); err != nil {
 		t.Fatalf("unmarshal statuses: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestDetectChanges_NotConfigured(t *testing.T) {
 
 func TestDetectChanges_OK(t *testing.T) {
 	mock := &mockCoverageIndexer{
-		changes: []coverage.Change{
+		changes: []status.CoverageChange{
 			{Path: "/foo/bar.go", Status: "modified"},
 			{Path: "/foo/baz.go", Status: "new"},
 		},
@@ -136,7 +136,7 @@ func TestDetectChanges_OK(t *testing.T) {
 		t.Fatalf("unexpected error result: %v", res.Content)
 	}
 
-	var got []coverage.Change
+	var got []status.CoverageChange
 	if err := json.Unmarshal([]byte(extractText(t, res)), &got); err != nil {
 		t.Fatalf("unmarshal changes: %v", err)
 	}

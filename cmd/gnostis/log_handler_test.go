@@ -1,4 +1,4 @@
-package log
+package main
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 
 func TestHandler(t *testing.T) {
 	var buf bytes.Buffer
-	logger := slog.New(NewHandler(&buf, slog.LevelInfo))
+	logger := slog.New(newLogHandler(&buf, slog.LevelInfo))
 
 	logger.Info("hello", slog.String("key", "value"), slog.Int("count", 17))
 
@@ -24,7 +24,7 @@ func TestHandler(t *testing.T) {
 
 func TestHandlerLevelColors(t *testing.T) {
 	var buf bytes.Buffer
-	logger := slog.New(NewHandler(&buf, slog.LevelDebug))
+	logger := slog.New(newLogHandler(&buf, slog.LevelDebug))
 
 	logger.Debug("debug")
 	logger.Info("info")

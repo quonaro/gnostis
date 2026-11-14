@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/quonaro/gnostis/internal/jobs"
-	"github.com/quonaro/gnostis/internal/progress"
-	"github.com/quonaro/gnostis/internal/stats"
+	"github.com/quonaro/gnostis/internal/status"
 )
 
 // Status returns the configured project names and current chunk count.
@@ -29,16 +27,16 @@ func (a *App) Info() (provider, model string, symbols int) {
 }
 
 // ProgressState returns the persisted rebuild progress state.
-func (a *App) ProgressState() (progress.State, error) {
+func (a *App) ProgressState() (status.State, error) {
 	if a.progress == nil {
-		return progress.State{Status: progress.StatusIdle}, nil
+		return status.State{Status: status.StatusIdle}, nil
 	}
 	return a.progress.Load()
 }
 
 // ProjectStats returns the current chunk count, last indexed time, and
-// indexing configuration for each configured project.
-func (a *App) ProjectStats(ctx context.Context) (map[string]stats.Project, error) {
+// indexing configuration for each configured directory.
+func (a *App) ProjectStats(ctx context.Context) (map[string]status.ProjectStats, error) {
 	loaded, err := a.indexingStats.Load()
 	if err != nil {
 		return nil, fmt.Errorf("load stats: %w", err)
@@ -46,18 +44,18 @@ func (a *App) ProjectStats(ctx context.Context) (map[string]stats.Project, error
 
 	snap := a.projectsSnapshot.Load()
 	if snap == nil {
-		return map[string]stats.Project{}, nil
+		return map[string]status.ProjectStats{}, nil
 	}
 
 	dirsSnap := a.dirsSnapshot.Load()
 
-	out := make(map[string]stats.Project, len(*snap))
+	out := make(map[string]status.ProjectStats, len(*snap))
 	for _, p := range *snap {
 		count, err := a.store.CountByProject(ctx, p.ID)
 		if err != nil {
 			return nil, fmt.Errorf("count project %q: %w", p.Name, err)
 		}
-		stat := stats.Project{Path: p.Path, Chunks: count}
+		stat := status.ProjectStats{Path: p.Path, Chunks: count}
 		if s, ok := loaded[p.Name]; ok {
 			stat.LastIndexedAt = s.LastIndexedAt
 			stat.Model = s.Model
@@ -86,7 +84,7 @@ func (a *App) FailProgress(err error) {
 }
 
 // Jobs returns a snapshot of all jobs in the queue (pending, running, recently completed).
-func (a *App) Jobs() []jobs.Job {
+func (a *App) Jobs() []status.Job {
 	if a.jobQueue == nil {
 		return nil
 	}

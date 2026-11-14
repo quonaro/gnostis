@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/quonaro/gnostis/internal/project"
+	"github.com/quonaro/gnostis/internal/directory"
 )
 
 func TestDirectoryTree_FallbackToAbsolutePath(t *testing.T) {
@@ -16,7 +16,7 @@ func TestDirectoryTree_FallbackToAbsolutePath(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	srv := New(&mockSearcher{}, nil, nil, nil, []project.Project{
+	srv := New(&mockSearcher{}, nil, nil, nil, []directory.Project{
 		{Name: "other", Path: "/some/other/path"},
 	})
 
@@ -38,7 +38,7 @@ func TestListFiles_FallbackToAbsolutePath(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 
-	srv := New(&mockSearcher{}, nil, nil, nil, []project.Project{
+	srv := New(&mockSearcher{}, nil, nil, nil, []directory.Project{
 		{Name: "other", Path: "/some/other/path"},
 	})
 
@@ -60,7 +60,7 @@ func TestGetRecentChanges_FallbackToAbsolutePath(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 
-	srv := New(&mockSearcher{}, nil, nil, nil, []project.Project{
+	srv := New(&mockSearcher{}, nil, nil, nil, []directory.Project{
 		{Name: "other", Path: "/some/other/path"},
 	})
 
@@ -82,7 +82,7 @@ func TestGrep_FallbackToAbsolutePath(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 
-	srv := New(&mockSearcher{}, nil, nil, nil, []project.Project{
+	srv := New(&mockSearcher{}, nil, nil, nil, []directory.Project{
 		{Name: "other", Path: "/some/other/path"},
 	})
 
@@ -105,7 +105,7 @@ func TestGetFileContext_FallbackToAbsolutePath(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 
-	srv := New(&mockSearcher{}, nil, nil, nil, []project.Project{
+	srv := New(&mockSearcher{}, nil, nil, nil, []directory.Project{
 		{Name: "other", Path: "/some/other/path"},
 	})
 
@@ -126,7 +126,7 @@ func TestGetFileContext_FallbackToAbsolutePath(t *testing.T) {
 }
 
 func TestResolvePathOrAbsolute_NoFallbackForRelative(t *testing.T) {
-	srv := New(&mockSearcher{}, nil, nil, nil, []project.Project{
+	srv := New(&mockSearcher{}, nil, nil, nil, []directory.Project{
 		{Name: "other", Path: "/some/other/path"},
 	})
 

@@ -19,18 +19,13 @@ import (
 	"github.com/quonaro/gnostis/internal/embeddings"
 	"github.com/quonaro/gnostis/internal/graph"
 	"github.com/quonaro/gnostis/internal/indexer"
-	"github.com/quonaro/gnostis/internal/jobs"
 	mcpServer "github.com/quonaro/gnostis/internal/mcp"
 	"github.com/quonaro/gnostis/internal/memory"
-	"github.com/quonaro/gnostis/internal/progress"
-	"github.com/quonaro/gnostis/internal/project"
 	"github.com/quonaro/gnostis/internal/search"
 	"github.com/quonaro/gnostis/internal/simhash"
-	"github.com/quonaro/gnostis/internal/stats"
+	"github.com/quonaro/gnostis/internal/status"
 	"github.com/quonaro/gnostis/internal/store"
 	"github.com/quonaro/gnostis/internal/symbol"
-	"github.com/quonaro/gnostis/internal/watcher"
-	"github.com/quonaro/gnostis/internal/web"
 )
 
 // App orchestrates configuration, indexing, search, and the MCP server.
@@ -38,7 +33,7 @@ type App struct {
 	cfg            config.Config
 	sqlDB          *db.DB
 	dirs           []directory.Directory
-	projects       []project.Project
+	projects       []directory.Project
 	store          store.VectorStore
 	provider       embeddings.Provider
 	engine         *search.Engine
@@ -47,19 +42,19 @@ type App struct {
 	symbolIndex    *symbol.Index
 	callGraph      *graph.Graph
 	simhashIndex   *simhash.Index
-	watcher        *watcher.Watcher
+	watcher        *fileWatcher
 	memoryMgr      *memory.Manager
 	mcp            *mcpServer.Server
-	webSrv         *web.Server
+	webSrv         *httpServer
 	embeddingCache map[string][]float32
-	progress       *progress.Progress
-	indexingStats  *stats.Stats
+	progress       *status.Progress
+	indexingStats  *status.Stats
 	ProgressWriter io.Writer
-	jobQueue       *jobs.Queue
+	jobQueue       *status.JobQueue
 
 	rebuildMu        sync.RWMutex
 	watcherStarted   bool
-	projectsSnapshot atomic.Pointer[[]project.Project]
+	projectsSnapshot atomic.Pointer[[]directory.Project]
 	dirsSnapshot     atomic.Pointer[[]directory.Directory]
 	modelName        atomic.Value
 	watcherRestartCh chan struct{}
@@ -136,9 +131,9 @@ func New(cfg config.Config) (*App, error) {
 		callGraph:        callGraph,
 		simhashIndex:     simhashIndex,
 		embeddingCache:   embeddingCache,
-		progress:         progress.New(sqlDB),
-		indexingStats:    stats.New(sqlDB),
-		jobQueue:         jobs.New(20),
+		progress:         status.NewProgress(sqlDB),
+		indexingStats:    status.NewStats(sqlDB),
+		jobQueue:         status.NewJobQueue(20),
 		watcherRestartCh: make(chan struct{}, 1),
 		changesCache:     make(map[string]changesCacheEntry),
 		layoutCache:      make(map[string]layoutCacheEntry),
@@ -163,15 +158,15 @@ func New(cfg config.Config) (*App, error) {
 
 	a.watcher = a.newWatcher()
 
-	a.webSrv = web.New(a.mcp.StreamableHTTPHandler(), a.mcp.WSHandler(a.mcp.DashboardHandlers()))
+	a.webSrv = newHTTPServer(a.mcp.StreamableHTTPHandler())
 
 	return a, nil
 }
 
 // updateSnapshots updates the lock-free copies used by status/read-only APIs.
 // It must be called while rebuildMu is held (or during construction).
-func (a *App) updateSnapshots(cfg config.Config, projects []project.Project) {
-	snapshot := append([]project.Project(nil), projects...)
+func (a *App) updateSnapshots(cfg config.Config, projects []directory.Project) {
+	snapshot := append([]directory.Project(nil), projects...)
 	a.projectsSnapshot.Store(&snapshot)
 
 	dirsSnap := append([]directory.Directory(nil), a.dirs...)
@@ -243,12 +238,6 @@ func (a *App) Run(ctx context.Context) error {
 		}
 	}()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		a.startStatusTicker(ctx)
-	}()
-
 	// Run stdio in background and block on OS signals so the app stays
 	// alive even when stdin is closed (e.g. under a task runner like lota dev).
 	go func() {
@@ -273,17 +262,17 @@ func (a *App) Run(ctx context.Context) error {
 func (a *App) initialIndex(ctx context.Context) error {
 	if state, err := a.progress.Load(); err != nil {
 		slog.ErrorContext(ctx, "load progress", "error", err)
-	} else if state.JobID != "" && (state.Status == progress.StatusRunning || state.Status == progress.StatusError) {
-		if state.Status == progress.StatusError {
+	} else if state.JobID != "" && (state.Status == status.StatusRunning || state.Status == status.StatusError) {
+		if state.Status == status.StatusError {
 			slog.WarnContext(ctx, "previous indexing ended with error, resuming", "job_id", state.JobID, "error", state.Error)
 		}
 		return a.resumeInterruptedJob(ctx, state)
-	} else if state.JobID == "" && (state.Status == progress.StatusRunning || state.Status == progress.StatusError) {
+	} else if state.JobID == "" && (state.Status == status.StatusRunning || state.Status == status.StatusError) {
 		slog.WarnContext(ctx, "previous indexing interrupted without job ID, re-indexing from scratch")
 		_ = a.progress.Reset()
 	}
 
-	if state, err := a.progress.Load(); err == nil && state.Status == progress.StatusDone {
+	if state, err := a.progress.Load(); err == nil && state.Status == status.StatusDone {
 		if a.isIndexUpToDate(ctx, state.UpdatedAt) {
 			slog.InfoContext(ctx, "index already up to date, skipping", "chunks", a.store.Count())
 			return nil

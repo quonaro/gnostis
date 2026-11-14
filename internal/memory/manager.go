@@ -10,6 +10,7 @@ import (
 
 	"github.com/quonaro/gnostis/internal/db"
 	"github.com/quonaro/gnostis/internal/embeddings"
+	"github.com/quonaro/gnostis/internal/store"
 )
 
 // Manager manages user-written memory notes stored as Markdown files
@@ -23,14 +24,14 @@ type Manager struct {
 
 // NewManager creates a memory manager for user notes.
 func NewManager(dataDir string, provider embeddings.Provider, database *db.DB) (*Manager, error) {
-	store, err := NewStore(context.Background(), dataDir, database)
+	st, err := store.NewMemory(context.Background(), dataDir, database)
 	if err != nil {
 		return nil, fmt.Errorf("open memory store: %w", err)
 	}
 
 	return &Manager{
 		dataDir:  dataDir,
-		indexer:  NewIndexer(store),
+		indexer:  NewIndexer(st),
 		provider: provider,
 		cache:    make(map[string][]float32),
 	}, nil
@@ -69,7 +70,7 @@ func (m *Manager) Rebuild(ctx context.Context) error {
 }
 
 // Store returns the underlying memory store for use by MCP tools.
-func (m *Manager) Store() *Store {
+func (m *Manager) Store() *store.Store {
 	return m.indexer.store
 }
 

@@ -1,4 +1,4 @@
-package lock
+package main
 
 import (
 	"fmt"
@@ -9,20 +9,20 @@ import (
 )
 
 // Lock is an advisory file lock on a directory.
-type Lock struct {
+type fileLock struct {
 	path string
 	file *os.File
 }
 
 // New creates a lock for the given directory. The lock file is created inside
 // the directory; it is not acquired until TryLock or TryRLock is called.
-func New(dir string) *Lock {
-	return &Lock{path: filepath.Join(dir, ".lock")}
+func newFileLock(dir string) *fileLock {
+	return &fileLock{path: filepath.Join(dir, ".lock")}
 }
 
 // TryLock acquires an exclusive non-blocking lock. It returns an error if the
 // lock is already held by another process.
-func (l *Lock) TryLock() error {
+func (l *fileLock) TryLock() error {
 	if l.file != nil {
 		return nil
 	}
@@ -50,7 +50,7 @@ func (l *Lock) TryLock() error {
 
 // TryRLock acquires a shared non-blocking lock. It returns an error if an
 // exclusive lock is already held.
-func (l *Lock) TryRLock() error {
+func (l *fileLock) TryRLock() error {
 	if l.file != nil {
 		return nil
 	}
@@ -74,7 +74,7 @@ func (l *Lock) TryRLock() error {
 
 // StalePID checks if the lock file contains a PID for a process that no longer
 // exists. Returns the PID if stale, 0 otherwise.
-func (l *Lock) StalePID() int {
+func (l *fileLock) StalePID() int {
 	data, err := os.ReadFile(l.path)
 	if err != nil {
 		return 0
@@ -93,7 +93,7 @@ func (l *Lock) StalePID() int {
 }
 
 // Unlock releases the lock and closes the underlying file.
-func (l *Lock) Unlock() error {
+func (l *fileLock) Unlock() error {
 	if l.file == nil {
 		return nil
 	}

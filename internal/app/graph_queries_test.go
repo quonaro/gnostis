@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/quonaro/gnostis/internal/chunker"
+	"github.com/quonaro/gnostis/internal/directory"
 	"github.com/quonaro/gnostis/internal/graph"
-	"github.com/quonaro/gnostis/internal/project"
 )
 
 func buildTestGraph() *graph.Graph {
@@ -96,7 +96,7 @@ func TestTracePath_SameSymbol(t *testing.T) {
 }
 
 func testAppWithGraph() *App {
-	projs := []project.Project{{Name: "test", Path: "/proj"}}
+	projs := []directory.Project{{Name: "test", Path: "/proj"}}
 	snap := &projs
 	a := &App{callGraph: buildTestGraph()}
 	a.projectsSnapshot.Store(snap)

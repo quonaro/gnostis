@@ -20,10 +20,8 @@ import (
 	"github.com/quonaro/gnostis/internal/embeddings"
 	"github.com/quonaro/gnostis/internal/graph"
 	"github.com/quonaro/gnostis/internal/indexer"
-	"github.com/quonaro/gnostis/internal/progress"
-	"github.com/quonaro/gnostis/internal/project"
 	"github.com/quonaro/gnostis/internal/simhash"
-	"github.com/quonaro/gnostis/internal/stats"
+	"github.com/quonaro/gnostis/internal/status"
 	"github.com/quonaro/gnostis/internal/store"
 	"github.com/quonaro/gnostis/internal/symbol"
 	"github.com/schollz/progressbar/v2"
@@ -37,7 +35,7 @@ var indexBackoff = []time.Duration{
 	4 * time.Second,
 }
 
-func indexDirectoryWithRetry(ctx context.Context, out io.Writer, dir directory.Directory, proj project.Project, idx *indexer.Indexer, ch *chunker.Chunker, provider embeddings.Provider, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, cache map[string][]float32, prog *progress.Progress, indexingStats *stats.Stats) error {
+func indexDirectoryWithRetry(ctx context.Context, out io.Writer, dir directory.Directory, proj directory.Project, idx *indexer.Indexer, ch *chunker.Chunker, provider embeddings.Provider, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, cache map[string][]float32, prog *status.Progress, indexingStats *status.Stats) error {
 	var lastErr error
 	for attempt := 0; attempt < maxIndexRetries; attempt++ {
 		err := indexDirectory(ctx, out, dir, proj, idx, ch, provider, st, sym, cg, si, cache, prog, indexingStats)
@@ -61,7 +59,7 @@ func indexDirectoryWithRetry(ctx context.Context, out io.Writer, dir directory.D
 	return lastErr
 }
 
-func indexDirectory(ctx context.Context, out io.Writer, dir directory.Directory, proj project.Project, idx *indexer.Indexer, ch *chunker.Chunker, provider embeddings.Provider, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, cache map[string][]float32, prog *progress.Progress, indexingStats *stats.Stats) error {
+func indexDirectory(ctx context.Context, out io.Writer, dir directory.Directory, proj directory.Project, idx *indexer.Indexer, ch *chunker.Chunker, provider embeddings.Provider, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, cache map[string][]float32, prog *status.Progress, indexingStats *status.Stats) error {
 	if prog != nil {
 		_ = prog.Start(proj.Name, 0)
 	}
@@ -72,7 +70,7 @@ func indexDirectory(ctx context.Context, out io.Writer, dir directory.Directory,
 	}
 	if prog != nil {
 		_ = prog.Start(proj.Name, len(files))
-		_ = prog.SetPhase(progress.PhaseChunking)
+		_ = prog.SetPhase(status.PhaseChunking)
 	}
 
 	var bar *progressbar.ProgressBar
@@ -103,7 +101,7 @@ func indexDirectory(ctx context.Context, out io.Writer, dir directory.Directory,
 	}
 
 	if prog != nil {
-		_ = prog.SetPhase(progress.PhaseEmbedding)
+		_ = prog.SetPhase(status.PhaseEmbedding)
 		_ = prog.SetTotalChunks(totalChunks)
 	}
 
@@ -166,7 +164,7 @@ func indexDirectory(ctx context.Context, out io.Writer, dir directory.Directory,
 
 const embedBatchFiles = 100
 
-func updateStats(ctx context.Context, indexingStats *stats.Stats, st store.VectorStore, projectID string, model string) {
+func updateStats(ctx context.Context, indexingStats *status.Stats, st store.VectorStore, projectID string, model string) {
 	if indexingStats == nil {
 		return
 	}
@@ -179,7 +177,7 @@ type fileChunks struct {
 	chunks []chunker.Chunk
 }
 
-func progressAdd(bar *progressbar.ProgressBar, prog *progress.Progress, n int, mu *sync.Mutex) {
+func progressAdd(bar *progressbar.ProgressBar, prog *status.Progress, n int, mu *sync.Mutex) {
 	if mu != nil {
 		mu.Lock()
 		defer mu.Unlock()
@@ -192,7 +190,7 @@ func progressAdd(bar *progressbar.ProgressBar, prog *progress.Progress, n int, m
 	}
 }
 
-func chunkFilesParallel(ctx context.Context, files []indexer.FileInfo, ch *chunker.Chunker, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, bar *progressbar.ProgressBar, prog *progress.Progress) []fileChunks {
+func chunkFilesParallel(ctx context.Context, files []indexer.FileInfo, ch *chunker.Chunker, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, bar *progressbar.ProgressBar, prog *status.Progress) []fileChunks {
 	workers := runtime.NumCPU()
 	if workers < 2 {
 		workers = 2
@@ -303,7 +301,7 @@ func chunkFilesParallel(ctx context.Context, files []indexer.FileInfo, ch *chunk
 	return changed
 }
 
-func reindexFile(ctx context.Context, absPath string, dirs []directory.Directory, projects []project.Project, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, provider embeddings.Provider, cache map[string][]float32, indexingStats *stats.Stats) error {
+func reindexFile(ctx context.Context, absPath string, dirs []directory.Directory, projects []directory.Project, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, provider embeddings.Provider, cache map[string][]float32, indexingStats *status.Stats) error {
 	if len(dirs) != len(projects) {
 		return fmt.Errorf("directory and project count mismatch")
 	}
@@ -319,11 +317,11 @@ func reindexFile(ctx context.Context, absPath string, dirs []directory.Directory
 	// directory rooted at the file's parent so global rules still apply.
 	parent := filepath.Dir(absPath)
 	dir := directory.FromConfig(config.Directory{Path: parent, Name: filepath.Base(parent)})
-	proj := project.New(filepath.Base(parent), parent)
+	proj := directory.NewProject(filepath.Base(parent), parent)
 	return reindexFileUnder(ctx, absPath, dir, proj, st, sym, cg, si, provider, cache, indexingStats)
 }
 
-func reindexFileUnder(ctx context.Context, absPath string, dir directory.Directory, proj project.Project, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, provider embeddings.Provider, cache map[string][]float32, indexingStats *stats.Stats) (err error) {
+func reindexFileUnder(ctx context.Context, absPath string, dir directory.Directory, proj directory.Project, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, provider embeddings.Provider, cache map[string][]float32, indexingStats *status.Stats) (err error) {
 	defer func() {
 		if err == nil {
 			updateStats(ctx, indexingStats, st, proj.ID, provider.ModelName())

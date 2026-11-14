@@ -6,13 +6,11 @@ import (
 	"log/slog"
 	"path/filepath"
 	"time"
-
-	"github.com/quonaro/gnostis/internal/watcher"
 )
 
 // newWatcher creates a fresh filesystem watcher with the current directory list.
-func (a *App) newWatcher() *watcher.Watcher {
-	return watcher.New(a.dirs, func(path string) {
+func (a *App) newWatcher() *fileWatcher {
+	return newFileWatcher(a.dirs, func(path string) {
 		desc := fmt.Sprintf("Auto-index: %s", filepath.Base(path))
 		a.jobQueue.Submit("watcher", desc, func(jobCtx context.Context) error {
 			a.rebuildMu.Lock()

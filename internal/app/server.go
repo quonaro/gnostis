@@ -1,4 +1,4 @@
-package web
+package app
 
 import (
 	"context"
@@ -7,39 +7,31 @@ import (
 	"net/http"
 )
 
-// Server is the HTTP dashboard server. It serves the SPA, the MCP streamable
-// HTTP endpoint, and the WebSocket endpoint for the dashboard.
-type Server struct {
+// Server is the HTTP server. It serves the MCP streamable HTTP endpoint.
+type httpServer struct {
 	mcpHandler http.Handler
-	wsHandler  http.Handler
 	mux        *http.ServeMux
 }
 
-// New creates a new web server. If mcpHandler is non-nil it is mounted at /mcp
-// to serve MCP clients over the Streamable HTTP transport. If wsHandler is
-// non-nil it is mounted at /ws to serve the dashboard over WebSocket.
-func New(mcpHandler http.Handler, wsHandler http.Handler) *Server {
-	s := &Server{
+// New creates a new HTTP server. If mcpHandler is non-nil it is mounted at
+// /mcp to serve MCP clients over the Streamable HTTP transport.
+func newHTTPServer(mcpHandler http.Handler) *httpServer {
+	s := &httpServer{
 		mcpHandler: mcpHandler,
-		wsHandler:  wsHandler,
 		mux:        http.NewServeMux(),
 	}
 	s.registerRoutes()
 	return s
 }
 
-func (s *Server) registerRoutes() {
+func (s *httpServer) registerRoutes() {
 	if s.mcpHandler != nil {
 		s.mux.Handle("/mcp", s.mcpHandler)
 	}
-	if s.wsHandler != nil {
-		s.mux.Handle("/ws", s.wsHandler)
-	}
-	s.mux.Handle("/", s.handleSPA())
 }
 
 // Start launches the HTTP server. It blocks until ctx is cancelled.
-func (s *Server) Start(ctx context.Context, port int) error {
+func (s *httpServer) Start(ctx context.Context, port int) error {
 	addr := fmt.Sprintf(":%d", port)
 	srv := &http.Server{
 		Addr:    addr,

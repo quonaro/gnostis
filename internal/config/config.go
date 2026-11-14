@@ -17,7 +17,7 @@ type Embeddings struct {
 	MaxChars  int
 }
 
-// Web configures the HTTP dashboard server.
+// Web configures the HTTP server that exposes the MCP endpoint.
 type Web struct {
 	Port int
 }

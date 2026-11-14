@@ -1,4 +1,4 @@
-package progress
+package status
 
 import (
 	"database/sql"
@@ -72,7 +72,7 @@ type Progress struct {
 }
 
 // New creates a Progress writer backed by SQLite.
-func New(database *db.DB) *Progress {
+func NewProgress(database *db.DB) *Progress {
 	return &Progress{
 		reader: database.Reader(),
 		writer: database.Writer(),

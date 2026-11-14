@@ -10,18 +10,19 @@ import (
 	"github.com/quonaro/gnostis/internal/chunker"
 	"github.com/quonaro/gnostis/internal/embeddings"
 	"github.com/quonaro/gnostis/internal/indexer"
+	"github.com/quonaro/gnostis/internal/store"
 )
 
 const projectIDPrefix = "memory-"
 
 // Indexer indexes exported memory Markdown files into the memory store.
 type Indexer struct {
-	store   *Store
+	store   *store.Store
 	chunker *chunker.Chunker
 }
 
 // NewIndexer creates a memory indexer.
-func NewIndexer(store *Store) *Indexer {
+func NewIndexer(store *store.Store) *Indexer {
 	return &Indexer{
 		store:   store,
 		chunker: chunker.New(),

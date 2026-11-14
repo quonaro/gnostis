@@ -1,4 +1,4 @@
-package watcher
+package app
 
 import (
 	"context"
@@ -14,13 +14,13 @@ import (
 	"github.com/quonaro/gnostis/internal/directory"
 )
 
-// ChangeFunc is called with the absolute path of a changed file.
-type ChangeFunc func(path string)
+// changeFunc is called with the absolute path of a changed file.
+type changeFunc func(path string)
 
 // Watcher monitors directories and debounces file change notifications.
-type Watcher struct {
+type fileWatcher struct {
 	dirs     []directory.Directory
-	onChange ChangeFunc
+	onChange changeFunc
 	watcher  *fsnotify.Watcher
 	debounce time.Duration
 	mu       sync.Mutex
@@ -31,8 +31,8 @@ type Watcher struct {
 }
 
 // New creates a watcher for the given directories.
-func New(dirs []directory.Directory, onChange ChangeFunc) *Watcher {
-	return &Watcher{
+func newFileWatcher(dirs []directory.Directory, onChange changeFunc) *fileWatcher {
+	return &fileWatcher{
 		dirs:     dirs,
 		onChange: onChange,
 		debounce: 2 * time.Second,
@@ -41,7 +41,7 @@ func New(dirs []directory.Directory, onChange ChangeFunc) *Watcher {
 }
 
 // Start begins watching directories recursively.
-func (w *Watcher) Start() error {
+func (w *fileWatcher) Start() error {
 	if w.watcher != nil {
 		_ = w.watcher.Close()
 	}
@@ -77,7 +77,7 @@ func (w *Watcher) Start() error {
 }
 
 // Stop shuts down the watcher.
-func (w *Watcher) Stop() error {
+func (w *fileWatcher) Stop() error {
 	slog.Info("stopping watcher")
 	if w.cancel != nil {
 		w.cancel()
@@ -100,7 +100,7 @@ func (w *Watcher) Stop() error {
 	return nil
 }
 
-func (w *Watcher) addRecursive(root string) error {
+func (w *fileWatcher) addRecursive(root string) error {
 	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			slog.Error("walk directory", "path", path, "error", err)
@@ -117,7 +117,7 @@ func (w *Watcher) addRecursive(root string) error {
 	})
 }
 
-func (w *Watcher) run() {
+func (w *fileWatcher) run() {
 	for {
 		select {
 		case <-w.ctx.Done():
@@ -136,7 +136,7 @@ func (w *Watcher) run() {
 	}
 }
 
-func (w *Watcher) handleEvent(event fsnotify.Event) {
+func (w *fileWatcher) handleEvent(event fsnotify.Event) {
 	slog.Debug("filesystem event", "path", event.Name, "op", event.Op.String())
 
 	w.mu.Lock()
@@ -164,7 +164,7 @@ func (w *Watcher) handleEvent(event fsnotify.Event) {
 	w.timer = time.AfterFunc(w.debounce, w.flush)
 }
 
-func (w *Watcher) flush() {
+func (w *fileWatcher) flush() {
 	w.mu.Lock()
 	paths := make([]string, 0, len(w.pending))
 	for p := range w.pending {

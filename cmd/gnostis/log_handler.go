@@ -1,4 +1,4 @@
-package log
+package main
 
 import (
 	"context"
@@ -20,7 +20,7 @@ const (
 
 // Handler is a colorful, concise slog handler.
 // Format: INF | message key=value ...
-type Handler struct {
+type logHandler struct {
 	writer io.Writer
 	level  slog.Level
 	mu     sync.Mutex
@@ -29,17 +29,17 @@ type Handler struct {
 }
 
 // NewHandler creates a new handler that writes to w and filters by level.
-func NewHandler(w io.Writer, level slog.Level) *Handler {
-	return &Handler{writer: w, level: level}
+func newLogHandler(w io.Writer, level slog.Level) *logHandler {
+	return &logHandler{writer: w, level: level}
 }
 
 // Enabled reports whether the handler handles records at the given level.
-func (h *Handler) Enabled(_ context.Context, level slog.Level) bool {
+func (h *logHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return level >= h.level
 }
 
 // Handle formats and writes a log record.
-func (h *Handler) Handle(_ context.Context, r slog.Record) error {
+func (h *logHandler) Handle(_ context.Context, r slog.Record) error {
 	color, label := formatLevel(r.Level)
 
 	buf := make([]byte, 0, 128+len(r.Message))
@@ -64,7 +64,7 @@ func (h *Handler) Handle(_ context.Context, r slog.Record) error {
 }
 
 // WithAttrs returns a new handler with the given attributes appended.
-func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
+func (h *logHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	if len(attrs) == 0 {
 		return h
 	}
@@ -73,7 +73,7 @@ func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	copy(newAttrs, h.attrs)
 	copy(newAttrs[len(h.attrs):], attrs)
 
-	return &Handler{
+	return &logHandler{
 		writer: h.writer,
 		level:  h.level,
 		attrs:  newAttrs,
@@ -82,7 +82,7 @@ func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 }
 
 // WithGroup returns a new handler with the given group appended.
-func (h *Handler) WithGroup(name string) slog.Handler {
+func (h *logHandler) WithGroup(name string) slog.Handler {
 	if name == "" {
 		return h
 	}
@@ -91,7 +91,7 @@ func (h *Handler) WithGroup(name string) slog.Handler {
 	copy(newGroups, h.groups)
 	newGroups[len(h.groups)] = name
 
-	return &Handler{
+	return &logHandler{
 		writer: h.writer,
 		level:  h.level,
 		attrs:  h.attrs,

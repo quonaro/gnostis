@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/quonaro/gnostis/internal/chunker"
+	"github.com/quonaro/gnostis/internal/directory"
 	"github.com/quonaro/gnostis/internal/graph"
-	"github.com/quonaro/gnostis/internal/project"
 )
 
 func buildArchGraph() *graph.Graph {
@@ -25,7 +25,7 @@ func buildArchGraph() *graph.Graph {
 }
 
 func TestArchitecture_Languages(t *testing.T) {
-	projs := []project.Project{{Name: "test", Path: "/proj"}}
+	projs := []directory.Project{{Name: "test", Path: "/proj"}}
 	a := &App{callGraph: buildArchGraph()}
 	a.projectsSnapshot.Store(&projs)
 
@@ -43,7 +43,7 @@ func TestArchitecture_Languages(t *testing.T) {
 }
 
 func TestArchitecture_Packages(t *testing.T) {
-	projs := []project.Project{{Name: "test", Path: "/proj"}}
+	projs := []directory.Project{{Name: "test", Path: "/proj"}}
 	a := &App{callGraph: buildArchGraph()}
 	a.projectsSnapshot.Store(&projs)
 
@@ -62,7 +62,7 @@ func TestArchitecture_Packages(t *testing.T) {
 }
 
 func TestArchitecture_EntryPoints(t *testing.T) {
-	projs := []project.Project{{Name: "test", Path: "/proj"}}
+	projs := []directory.Project{{Name: "test", Path: "/proj"}}
 	a := &App{callGraph: buildArchGraph()}
 	a.projectsSnapshot.Store(&projs)
 
@@ -84,7 +84,7 @@ func TestArchitecture_EntryPoints(t *testing.T) {
 }
 
 func TestArchitecture_Hotspots(t *testing.T) {
-	projs := []project.Project{{Name: "test", Path: "/proj"}}
+	projs := []directory.Project{{Name: "test", Path: "/proj"}}
 	a := &App{callGraph: buildArchGraph()}
 	a.projectsSnapshot.Store(&projs)
 
@@ -103,7 +103,7 @@ func TestArchitecture_Hotspots(t *testing.T) {
 }
 
 func TestArchitecture_SymbolsByKind(t *testing.T) {
-	projs := []project.Project{{Name: "test", Path: "/proj"}}
+	projs := []directory.Project{{Name: "test", Path: "/proj"}}
 	a := &App{callGraph: buildArchGraph()}
 	a.projectsSnapshot.Store(&projs)
 
@@ -118,7 +118,7 @@ func TestArchitecture_SymbolsByKind(t *testing.T) {
 }
 
 func TestArchitecture_Totals(t *testing.T) {
-	projs := []project.Project{{Name: "test", Path: "/proj"}}
+	projs := []directory.Project{{Name: "test", Path: "/proj"}}
 	a := &App{callGraph: buildArchGraph()}
 	a.projectsSnapshot.Store(&projs)
 

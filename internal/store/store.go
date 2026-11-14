@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,8 +16,12 @@ import (
 	"github.com/quonaro/gnostis/internal/db"
 )
 
-const collectionName = "code_chunks"
-const scopeCode = "code"
+const (
+	collectionCode   = "code_chunks"
+	scopeCode        = "code"
+	collectionMemory = "memory_chunks"
+	scopeMemory      = "memory"
+)
 
 // VectorStore is the storage interface consumed by the search engine and indexer.
 // It is implemented by the default chromem-backed Store and can be implemented by
@@ -48,10 +53,24 @@ type Store struct {
 // compile-time check that Store implements VectorStore.
 var _ VectorStore = (*Store)(nil)
 
-// New opens or creates a persistent chromem-go database and returns a VectorStore.
-// database is used for file hashes and embedding dimension metadata.
+// New opens or creates a persistent chromem-go database and returns a VectorStore
+// backed by the code_chunks collection. database is used for file hashes and
+// embedding dimension metadata.
 func New(ctx context.Context, dataDir string, database *db.DB) (*Store, error) {
-	slog.InfoContext(ctx, "opening store", "data_dir", dataDir)
+	return newStore(ctx, dataDir, collectionCode, scopeCode, "code", database)
+}
+
+// NewMemory opens or creates a persistent chromem-go database backed by the
+// memory_chunks collection, used for semantic search over memory notes.
+func NewMemory(ctx context.Context, dataDir string, database *db.DB) (*Store, error) {
+	return newStore(ctx, dataDir, collectionMemory, scopeMemory, "memory", database)
+}
+
+func newStore(ctx context.Context, dataDir, collection, scope, label string, database *db.DB) (*Store, error) {
+	slog.InfoContext(ctx, "opening store", "data_dir", dataDir, "collection", collection)
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		return nil, fmt.Errorf("create %s data dir: %w", label, err)
+	}
 	db, err := chromem.NewPersistentDB(dataDir, false)
 	if err != nil {
 		return nil, fmt.Errorf("open chromem db: %w", err)
@@ -61,7 +80,7 @@ func New(ctx context.Context, dataDir string, database *db.DB) (*Store, error) {
 		return nil, fmt.Errorf("embeddings must be provided explicitly")
 	}
 
-	col, err := db.GetOrCreateCollection(collectionName, nil, embedFn)
+	col, err := db.GetOrCreateCollection(collection, nil, embedFn)
 	if err != nil {
 		return nil, fmt.Errorf("create collection: %w", err)
 	}
@@ -70,14 +89,14 @@ func New(ctx context.Context, dataDir string, database *db.DB) (*Store, error) {
 		col:    col,
 		reader: database.Reader(),
 		writer: database.Writer(),
-		scope:  scopeCode,
+		scope:  scope,
 		hashes: make(map[string]string),
 	}
 	if err := s.loadHashes(); err != nil {
-		return nil, fmt.Errorf("load file hashes: %w", err)
+		return nil, fmt.Errorf("load %s file hashes: %w", label, err)
 	}
 	if err := s.loadDim(); err != nil {
-		return nil, fmt.Errorf("load embedding dimension: %w", err)
+		return nil, fmt.Errorf("load %s embedding dimension: %w", label, err)
 	}
 
 	return s, nil
@@ -171,16 +190,23 @@ func (s *Store) DeleteByPaths(ctx context.Context, paths []string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	tx, err := s.writer.Begin()
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+
 	for _, path := range paths {
 		if err := s.col.Delete(ctx, map[string]string{"path": path}, nil); err != nil {
+			_ = tx.Rollback()
 			return fmt.Errorf("delete path %s: %w", path, err)
 		}
 		delete(s.hashes, path)
-		if _, err := s.writer.Exec(`DELETE FROM file_hashes WHERE scope=? AND path=?`, s.scope, path); err != nil {
+		if _, err := tx.Exec(`DELETE FROM file_hashes WHERE scope=? AND path=?`, s.scope, path); err != nil {
+			_ = tx.Rollback()
 			return fmt.Errorf("delete hash for path %s: %w", path, err)
 		}
 	}
-	return nil
+	return tx.Commit()
 }
 
 // Query searches the vector store with a precomputed embedding.

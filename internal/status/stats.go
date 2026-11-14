@@ -1,4 +1,4 @@
-package stats
+package status
 
 import (
 	"database/sql"
@@ -10,7 +10,7 @@ import (
 )
 
 // Project holds per-project indexing metadata.
-type Project struct {
+type ProjectStats struct {
 	Path          string    `json:"path"`
 	Chunks        int       `json:"chunks"`
 	LastIndexedAt time.Time `json:"last_indexed_at"`
@@ -26,20 +26,20 @@ type Stats struct {
 	mu     sync.Mutex
 	reader *sql.DB
 	writer *sql.DB
-	data   map[string]Project
+	data   map[string]ProjectStats
 }
 
 // New creates a Stats writer backed by SQLite.
-func New(database *db.DB) *Stats {
+func NewStats(database *db.DB) *Stats {
 	return &Stats{
 		reader: database.Reader(),
 		writer: database.Writer(),
-		data:   make(map[string]Project),
+		data:   make(map[string]ProjectStats),
 	}
 }
 
 // Load reads the persisted stats from SQLite.
-func (s *Stats) Load() (map[string]Project, error) {
+func (s *Stats) Load() (map[string]ProjectStats, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -49,7 +49,7 @@ func (s *Stats) Load() (map[string]Project, error) {
 	}
 	defer func() { _ = rows.Close() }()
 	for rows.Next() {
-		var p Project
+		var p ProjectStats
 		var project, lastIndexedAt string
 		if err := rows.Scan(&project, &p.Path, &p.Chunks, &lastIndexedAt, &p.Model); err != nil {
 			return nil, fmt.Errorf("scan stats row: %w", err)
@@ -67,7 +67,7 @@ func (s *Stats) Update(project string, chunks int, model string) error {
 	defer s.mu.Unlock()
 
 	now := time.Now().UTC()
-	s.data[project] = Project{
+	s.data[project] = ProjectStats{
 		Chunks:        chunks,
 		Model:         model,
 		LastIndexedAt: now,

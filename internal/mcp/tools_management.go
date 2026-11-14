@@ -8,24 +8,22 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/quonaro/gnostis/internal/jobs"
-	"github.com/quonaro/gnostis/internal/progress"
-	"github.com/quonaro/gnostis/internal/stats"
+	"github.com/quonaro/gnostis/internal/status"
 )
 
 type getIndexStatusArgs struct{}
 
 type indexStatusResult struct {
-	Projects     []string                 `json:"projects"`
-	TotalChunks  int                      `json:"total_chunks"`
-	Provider     string                   `json:"provider"`
-	Model        string                   `json:"model"`
-	Symbols      int                      `json:"symbols"`
-	Progress     progress.State           `json:"progress"`
-	ETA          string                   `json:"eta,omitempty"`
-	ETASeconds   int64                    `json:"eta_seconds,omitempty"`
-	ProjectStats map[string]stats.Project `json:"project_stats"`
-	Jobs         []jobs.Job               `json:"jobs,omitempty"`
+	Projects     []string                       `json:"projects"`
+	TotalChunks  int                            `json:"total_chunks"`
+	Provider     string                         `json:"provider"`
+	Model        string                         `json:"model"`
+	Symbols      int                            `json:"symbols"`
+	Progress     status.State                   `json:"progress"`
+	ETA          string                         `json:"eta,omitempty"`
+	ETASeconds   int64                          `json:"eta_seconds,omitempty"`
+	ProjectStats map[string]status.ProjectStats `json:"project_stats"`
+	Jobs         []status.Job                   `json:"jobs,omitempty"`
 }
 
 func getIndexStatusTool() mcp.Tool {

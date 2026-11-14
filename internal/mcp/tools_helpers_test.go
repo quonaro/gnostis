@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/quonaro/gnostis/internal/project"
+	"github.com/quonaro/gnostis/internal/directory"
 )
 
 func TestToolError_StructuredJSON(t *testing.T) {
@@ -27,7 +27,7 @@ func TestToolError_StructuredJSON(t *testing.T) {
 }
 
 func TestIsPathAllowed_PrefixSiblings(t *testing.T) {
-	srv := New(&mockSearcher{}, nil, nil, nil, []project.Project{
+	srv := New(&mockSearcher{}, nil, nil, nil, []directory.Project{
 		{Name: "tmp", Path: "/tmp"},
 	})
 

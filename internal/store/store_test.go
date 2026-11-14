@@ -189,6 +189,86 @@ func TestStore_CountByProject(t *testing.T) {
 	}
 }
 
+func TestNewMemory_AddAndQuery(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.Background()
+
+	s, err := NewMemory(ctx, dir, db.OpenTestDB(t))
+	if err != nil {
+		t.Fatalf("NewMemory: %v", err)
+	}
+
+	chunks := []chunker.Chunk{
+		{ID: "c1", ProjectID: "memory-cascade", Path: "/tmp/a.md", Content: "hello world", FileHash: "h1", StartLine: 1, EndLine: 1},
+	}
+	if err := s.AddChunks(ctx, chunks, [][]float32{{1, 0, 0, 0}}); err != nil {
+		t.Fatalf("AddChunks: %v", err)
+	}
+	if got := s.Count(); got != 1 {
+		t.Fatalf("Count = %d, want 1", got)
+	}
+
+	results, err := s.Query(ctx, []float32{1, 0, 0, 0}, 10, map[string]string{"project_id": "memory-cascade"})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("Query results = %d, want 1", len(results))
+	}
+	if results[0].Content != "hello world" {
+		t.Errorf("Content = %q, want %q", results[0].Content, "hello world")
+	}
+}
+
+func TestNewMemory_DeleteByPath(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.Background()
+
+	s, err := NewMemory(ctx, dir, db.OpenTestDB(t))
+	if err != nil {
+		t.Fatalf("NewMemory: %v", err)
+	}
+
+	chunks := []chunker.Chunk{
+		{ID: "c1", ProjectID: "memory-cascade", Path: "/tmp/a.md", Content: "hello", FileHash: "h1", StartLine: 1, EndLine: 1},
+	}
+	if err := s.AddChunks(ctx, chunks, [][]float32{{1, 0, 0, 0}}); err != nil {
+		t.Fatalf("AddChunks: %v", err)
+	}
+	if err := s.DeleteByPath(ctx, "/tmp/a.md"); err != nil {
+		t.Fatalf("DeleteByPath: %v", err)
+	}
+	if got := s.Count(); got != 0 {
+		t.Fatalf("Count after delete = %d, want 0", got)
+	}
+}
+
+func TestNewMemory_IsolatedFromCodeStore(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.Background()
+	sqlDB := db.OpenTestDB(t)
+
+	codeDir := t.TempDir()
+	code, err := New(ctx, codeDir, sqlDB)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	mem, err := NewMemory(ctx, dir, sqlDB)
+	if err != nil {
+		t.Fatalf("NewMemory: %v", err)
+	}
+
+	chunks := []chunker.Chunk{
+		{ID: "c1", ProjectID: "memory-cascade", Path: "/tmp/a.md", Content: "note", FileHash: "h1"},
+	}
+	if err := mem.AddChunks(ctx, chunks, [][]float32{{1, 0, 0}}); err != nil {
+		t.Fatalf("AddChunks: %v", err)
+	}
+	if got := code.Count(); got != 0 {
+		t.Fatalf("code store Count = %d, want 0 (scopes must be isolated)", got)
+	}
+}
+
 func TestStore_DimPersistence(t *testing.T) {
 	dir := t.TempDir()
 	ctx := context.Background()

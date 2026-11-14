@@ -17,6 +17,8 @@ type mockGraphIndexer struct {
 	traceErr    error
 	deadCode    []graph.DeadCodeCandidate
 	deadCodeErr error
+	communities *graph.CommunityResult
+	commErr     error
 }
 
 func (m *mockGraphIndexer) TracePath(_ context.Context, from, to, project string, maxDepth int) (graph.TraceResult, error) {
@@ -31,6 +33,13 @@ func (m *mockGraphIndexer) DeadCode(_ context.Context, project, kind string, top
 		return nil, m.deadCodeErr
 	}
 	return m.deadCode, nil
+}
+
+func (m *mockGraphIndexer) Communities(_ context.Context, project string, minSize, topK, maxMembers int) (*graph.CommunityResult, error) {
+	if m.commErr != nil {
+		return nil, m.commErr
+	}
+	return m.communities, nil
 }
 
 func TestTracePath_MissingFrom(t *testing.T) {
@@ -189,5 +198,69 @@ func TestDeadCode_EmptyResults(t *testing.T) {
 	}
 	if len(got) != 0 {
 		t.Errorf("expected empty array, got %d items", len(got))
+	}
+}
+
+func TestCommunities_MissingProject(t *testing.T) {
+	srv := New(&mockSearcher{}, nil, &mockIndexer{}, nil, nil)
+	res, err := srv.communities(context.Background(), mcp.CallToolRequest{}, communitiesArgs{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.IsError {
+		t.Fatal("expected error result for missing project")
+	}
+}
+
+func TestCommunities_NotConfigured(t *testing.T) {
+	srv := New(&mockSearcher{}, nil, nil, nil, nil)
+	res, err := srv.communities(context.Background(), mcp.CallToolRequest{}, communitiesArgs{Project: "foo"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.IsError {
+		t.Fatal("expected error result when indexer not configured")
+	}
+}
+
+func TestCommunities_ProjectNotFound(t *testing.T) {
+	mock := &mockGraphIndexer{commErr: errors.New(`project "nope" not found`)}
+	srv := New(&mockSearcher{}, nil, mock, nil, nil)
+	res, err := srv.communities(context.Background(), mcp.CallToolRequest{}, communitiesArgs{Project: "nope"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.IsError {
+		t.Fatal("expected error result for unknown project")
+	}
+}
+
+func TestCommunities_Results(t *testing.T) {
+	mock := &mockGraphIndexer{
+		communities: &graph.CommunityResult{
+			TotalNodes:     10,
+			Modularity:     0.42,
+			CommunityCount: 2,
+			Communities: []graph.Community{
+				{ID: 0, Label: "internal/graph", Size: 6, InternalEdges: 8},
+				{ID: 1, Label: "internal/mcp", Size: 4, InternalEdges: 3},
+			},
+		},
+	}
+	srv := New(&mockSearcher{}, nil, mock, nil, nil)
+	res, err := srv.communities(context.Background(), mcp.CallToolRequest{}, communitiesArgs{Project: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.IsError {
+		t.Fatalf("unexpected error result: %v", res.Content)
+	}
+
+	var got graph.CommunityResult
+	if err := json.Unmarshal([]byte(extractText(t, res)), &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got.CommunityCount != 2 || len(got.Communities) != 2 {
+		t.Errorf("unexpected result: %+v", got)
 	}
 }

@@ -1,7 +1,7 @@
-package coverage
+package status
 
 // Status describes the index state of a single path.
-type Status struct {
+type CoverageStatus struct {
 	Path      string `json:"path"`
 	Status    string `json:"status"` // indexed | stale | not_indexed | deleted
 	FileHash  string `json:"file_hash,omitempty"`
@@ -9,7 +9,7 @@ type Status struct {
 }
 
 // Change describes a file whose on-disk state differs from the index.
-type Change struct {
+type CoverageChange struct {
 	Path   string `json:"path"`
 	Status string `json:"status"` // modified | new | deleted
 }

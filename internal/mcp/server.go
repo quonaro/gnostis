@@ -9,15 +9,12 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
 
-	"github.com/quonaro/gnostis/internal/coverage"
+	"github.com/quonaro/gnostis/internal/directory"
 	"github.com/quonaro/gnostis/internal/graph"
-	"github.com/quonaro/gnostis/internal/jobs"
 	"github.com/quonaro/gnostis/internal/memory"
-	"github.com/quonaro/gnostis/internal/progress"
-	"github.com/quonaro/gnostis/internal/project"
 	"github.com/quonaro/gnostis/internal/search"
 	"github.com/quonaro/gnostis/internal/simhash"
-	"github.com/quonaro/gnostis/internal/stats"
+	"github.com/quonaro/gnostis/internal/status"
 	"github.com/quonaro/gnostis/internal/symbol"
 )
 
@@ -36,8 +33,8 @@ type Finder interface {
 type Indexer interface {
 	Status() ([]string, int)
 	Info() (provider, model string, symbols int)
-	ProgressState() (progress.State, error)
-	ProjectStats(ctx context.Context) (map[string]stats.Project, error)
+	ProgressState() (status.State, error)
+	ProjectStats(ctx context.Context) (map[string]status.ProjectStats, error)
 	ProjectPath(name string) (string, error)
 	ReindexFiles(ctx context.Context, paths []string) error
 	StartRebuildProject(ctx context.Context, name string) (string, error)
@@ -45,14 +42,15 @@ type Indexer interface {
 	AddProject(ctx context.Context, path, name string, extensions, include, exclude []string, maxFileSizeMB int) (string, error)
 	EditProject(ctx context.Context, name string, extensions, include, exclude []string, maxFileSizeMB int) error
 	RemoveProject(ctx context.Context, name string) error
-	CheckCoverage(ctx context.Context, paths []string) []coverage.Status
-	DetectChanges(ctx context.Context, project string) ([]coverage.Change, error)
+	CheckCoverage(ctx context.Context, paths []string) []status.CoverageStatus
+	DetectChanges(ctx context.Context, project string) ([]status.CoverageChange, error)
 	TracePath(ctx context.Context, from, to, project string, maxDepth int) (graph.TraceResult, error)
 	DeadCode(ctx context.Context, project, kind string, topK int) ([]graph.DeadCodeCandidate, error)
+	Communities(ctx context.Context, project string, minSize, topK, maxMembers int) (*graph.CommunityResult, error)
 	Architecture(ctx context.Context, project string) (*graph.Architecture, error)
 	FindSimilar(ctx context.Context, path, project string, threshold float64, topK int) ([]simhash.FileMatch, error)
 	GraphLayout(project string, connectedOnly bool, maxNodes int) (graph.LayoutResult, error)
-	Jobs() []jobs.Job
+	Jobs() []status.Job
 }
 
 const serverName = "gnostis"
@@ -74,11 +72,11 @@ type Server struct {
 	symbols       Finder
 	indexer       Indexer
 	memoryManager *memory.Manager
-	projects      []project.Project
+	projects      []directory.Project
 }
 
 // New creates and configures the MCP server.
-func New(engine Searcher, symbols Finder, indexer Indexer, memoryManager *memory.Manager, projects []project.Project) *Server {
+func New(engine Searcher, symbols Finder, indexer Indexer, memoryManager *memory.Manager, projects []directory.Project) *Server {
 	slog.Info("creating mcp server", "name", serverName, "version", version)
 	s := &Server{
 		version:       version,
@@ -100,7 +98,7 @@ func New(engine Searcher, symbols Finder, indexer Indexer, memoryManager *memory
 }
 
 // ReloadProjects updates the project list used for path resolution and list_projects.
-func (s *Server) ReloadProjects(projects []project.Project) {
+func (s *Server) ReloadProjects(projects []directory.Project) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.projects = projects
@@ -147,6 +145,7 @@ func (s *Server) registerTools() {
 	s.server.AddTool(detectChangesTool(), mcp.NewTypedToolHandler(s.detectChanges))
 	s.server.AddTool(tracePathTool(), mcp.NewTypedToolHandler(s.tracePath))
 	s.server.AddTool(deadCodeTool(), mcp.NewTypedToolHandler(s.deadCode))
+	s.server.AddTool(communitiesTool(), mcp.NewTypedToolHandler(s.communities))
 	s.server.AddTool(getArchitectureTool(), mcp.NewTypedToolHandler(s.getArchitecture))
 	s.server.AddTool(findSimilarTool(), mcp.NewTypedToolHandler(s.findSimilar))
 	s.server.AddTool(graphLayoutTool(), mcp.NewTypedToolHandler(s.graphLayout))

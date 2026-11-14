@@ -7,19 +7,18 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/quonaro/gnostis/internal/coverage"
 	"github.com/quonaro/gnostis/internal/directory"
 	"github.com/quonaro/gnostis/internal/indexer"
-	"github.com/quonaro/gnostis/internal/project"
+	"github.com/quonaro/gnostis/internal/status"
 )
 
 // CheckCoverage checks whether each path is indexed and up to date.
-func (a *App) CheckCoverage(_ context.Context, paths []string) []coverage.Status {
+func (a *App) CheckCoverage(_ context.Context, paths []string) []status.CoverageStatus {
 	hashes := a.store.FileHashes()
-	out := make([]coverage.Status, 0, len(paths))
+	out := make([]status.CoverageStatus, 0, len(paths))
 
 	for _, p := range paths {
-		st := coverage.Status{Path: p}
+		st := status.CoverageStatus{Path: p}
 
 		info, err := os.Stat(p)
 		if err != nil {
@@ -67,8 +66,8 @@ func (a *App) CheckCoverage(_ context.Context, paths []string) []coverage.Status
 }
 
 // DetectChanges lists files that are new, modified, or deleted since the last
-// index for the given project.
-func (a *App) DetectChanges(ctx context.Context, projectName string) ([]coverage.Change, error) {
+// index for the given directory.
+func (a *App) DetectChanges(ctx context.Context, projectName string) ([]status.CoverageChange, error) {
 	dir, proj, err := a.findProject(projectName)
 	if err != nil {
 		return nil, err
@@ -85,14 +84,14 @@ func (a *App) DetectChanges(ctx context.Context, projectName string) ([]coverage
 		currentHashes[f.Path] = f.Hash
 	}
 
-	var changes []coverage.Change
+	var changes []status.CoverageChange
 
 	for path, currentHash := range currentHashes {
 		storedHash, ok := storedHashes[path]
 		if !ok {
-			changes = append(changes, coverage.Change{Path: path, Status: "new"})
+			changes = append(changes, status.CoverageChange{Path: path, Status: "new"})
 		} else if storedHash != currentHash {
-			changes = append(changes, coverage.Change{Path: path, Status: "modified"})
+			changes = append(changes, status.CoverageChange{Path: path, Status: "modified"})
 		}
 	}
 
@@ -101,7 +100,7 @@ func (a *App) DetectChanges(ctx context.Context, projectName string) ([]coverage
 			continue
 		}
 		if _, ok := currentHashes[path]; !ok {
-			changes = append(changes, coverage.Change{Path: path, Status: "deleted"})
+			changes = append(changes, status.CoverageChange{Path: path, Status: "deleted"})
 		}
 	}
 
@@ -112,16 +111,16 @@ func (a *App) DetectChanges(ctx context.Context, projectName string) ([]coverage
 	return changes, nil
 }
 
-func (a *App) findProject(name string) (directory.Directory, project.Project, error) {
+func (a *App) findProject(name string) (directory.Directory, directory.Project, error) {
 	snap := a.projectsSnapshot.Load()
 	dirsSnap := a.dirsSnapshot.Load()
 	if snap == nil || dirsSnap == nil {
-		return directory.Directory{}, project.Project{}, fmt.Errorf("no projects loaded")
+		return directory.Directory{}, directory.Project{}, fmt.Errorf("no projects loaded")
 	}
 	for i, p := range *snap {
 		if p.Name == name {
 			return (*dirsSnap)[i], p, nil
 		}
 	}
-	return directory.Directory{}, project.Project{}, fmt.Errorf("project %q not found", name)
+	return directory.Directory{}, directory.Project{}, fmt.Errorf("project %q not found", name)
 }

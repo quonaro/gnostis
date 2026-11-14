@@ -47,6 +47,44 @@ func (s *Server) tracePath(ctx context.Context, _ mcp.CallToolRequest, args trac
 	return mcp.NewToolResultText(string(data)), nil
 }
 
+func communitiesTool() mcp.Tool {
+	return mcp.NewTool("get_communities",
+		mcp.WithDescription("Detect communities (Louvain clustering) in the project call graph: groups of tightly coupled symbols with a label, size, and modularity score"),
+		mcp.WithString("project", mcp.Required(), mcp.Description("Project name from list_projects")),
+		mcp.WithNumber("min_size", mcp.Description("Minimum community size"), mcp.DefaultNumber(1)),
+		mcp.WithNumber("top_k", mcp.Description("Max communities returned"), mcp.DefaultNumber(30)),
+		mcp.WithNumber("max_members", mcp.Description("Max member nodes listed per community"), mcp.DefaultNumber(20)),
+	)
+}
+
+type communitiesArgs struct {
+	Project    string `json:"project"`
+	MinSize    int    `json:"min_size,omitempty"`
+	TopK       int    `json:"top_k,omitempty"`
+	MaxMembers int    `json:"max_members,omitempty"`
+}
+
+func (s *Server) communities(ctx context.Context, _ mcp.CallToolRequest, args communitiesArgs) (*mcp.CallToolResult, error) {
+	if args.Project == "" {
+		return toolError(errReasonInvalidArgument, "project is required", "use list_projects to see available projects"), nil
+	}
+
+	if s.indexer == nil {
+		return toolError(errReasonNotConfigured, "indexer is not configured", "add a project and run rebuild_index first"), nil
+	}
+
+	result, err := s.indexer.Communities(ctx, args.Project, args.MinSize, args.TopK, args.MaxMembers)
+	if err != nil {
+		return toolError(errReasonNotFound, err.Error(), "use list_projects to verify the project name"), nil
+	}
+
+	data, err := json.Marshal(result)
+	if err != nil {
+		return toolError(errReasonSearchFailed, "marshal communities result", ""), nil
+	}
+	return mcp.NewToolResultText(string(data)), nil
+}
+
 func deadCodeTool() mcp.Tool {
 	return mcp.NewTool("dead_code",
 		mcp.WithDescription("List symbols with no detected callers. Heuristic: entry points (main, init, tests, exported Go symbols) are excluded."),

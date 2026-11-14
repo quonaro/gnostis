@@ -5,7 +5,6 @@ import (
 	"log/slog"
 
 	"github.com/quonaro/gnostis/internal/config"
-	"github.com/quonaro/gnostis/internal/log"
 )
 
 func loadConfig() (config.Config, error) {
@@ -19,7 +18,7 @@ func loadConfig() (config.Config, error) {
 		if err != nil {
 			return config.Config{}, fmt.Errorf("parse log level: %w", err)
 		}
-		slog.SetDefault(slog.New(log.NewHandler(logOutput, level)))
+		slog.SetDefault(slog.New(newLogHandler(logOutput, level)))
 	}
 
 	return cfg, nil

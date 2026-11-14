@@ -9,21 +9,20 @@ import (
 	"github.com/quonaro/gnostis/internal/config"
 	"github.com/quonaro/gnostis/internal/db"
 	"github.com/quonaro/gnostis/internal/directory"
-	"github.com/quonaro/gnostis/internal/project"
 )
 
 // resolveProjects loads project configs from SQLite and creates
 // directory/project pairs.
-func resolveProjects(database *db.DB) ([]directory.Directory, []project.Project, error) {
+func resolveProjects(database *db.DB) ([]directory.Directory, []directory.Project, error) {
 	dirs, err := config.LoadProjectFiles(database)
 	if err != nil {
 		return nil, nil, fmt.Errorf("load project files: %w", err)
 	}
 
 	var outDirs []directory.Directory
-	var outProjects []project.Project
+	var outProjects []directory.Project
 	for _, d := range dirs {
-		p := project.New(d.Name, d.Path)
+		p := directory.NewProject(d.Name, d.Path)
 		outDirs = append(outDirs, directory.FromConfig(d))
 		outProjects = append(outProjects, p)
 	}
@@ -33,7 +32,7 @@ func resolveProjects(database *db.DB) ([]directory.Directory, []project.Project,
 
 // AddProject saves a project JSON file to the projects directory and updates
 // the in-memory project list. It does not start indexing — call
-// StartRebuildProject separately to index the project.
+// StartRebuildProject separately to index the directory.
 func (a *App) AddProject(ctx context.Context, path, name string, extensions, include, exclude []string, maxFileSizeMB int) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("path is required")
@@ -78,7 +77,7 @@ func (a *App) AddProject(ctx context.Context, path, name string, extensions, inc
 	}
 
 	a.dirs = append(a.dirs, directory.FromConfig(d))
-	a.projects = append(a.projects, project.New(name, absPath))
+	a.projects = append(a.projects, directory.NewProject(name, absPath))
 	a.updateSnapshots(a.cfg, a.projects)
 
 	if a.mcp != nil {
@@ -168,7 +167,7 @@ func (a *App) RemoveProject(ctx context.Context, name string) error {
 	return nil
 }
 
-func uniqueProjectName(name string, projects []project.Project) string {
+func uniqueProjectName(name string, projects []directory.Project) string {
 	used := make(map[string]bool)
 	for _, p := range projects {
 		used[p.Name] = true

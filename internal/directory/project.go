@@ -1,4 +1,4 @@
-package project
+package directory
 
 // Project represents an indexed directory root.
 type Project struct {
@@ -8,7 +8,7 @@ type Project struct {
 }
 
 // New creates a project from a directory path and name.
-func New(name, path string) Project {
+func NewProject(name, path string) Project {
 	return Project{
 		ID:   name,
 		Name: name,

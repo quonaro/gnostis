@@ -1,4 +1,4 @@
-package jobs
+package status
 
 import (
 	"context"
@@ -7,13 +7,13 @@ import (
 )
 
 // Status represents the lifecycle state of a job.
-type Status string
+type JobStatus string
 
 const (
-	StatusPending Status = "pending"
-	StatusRunning Status = "running"
-	StatusDone    Status = "done"
-	StatusFailed  Status = "failed"
+	JobPending JobStatus = "pending"
+	JobRunning JobStatus = "running"
+	JobDone    JobStatus = "done"
+	JobFailed  JobStatus = "failed"
 )
 
 // Job describes a unit of work in the queue.
@@ -21,7 +21,7 @@ type Job struct {
 	ID          string     `json:"id"`
 	Type        string     `json:"type"`
 	Description string     `json:"description"`
-	Status      Status     `json:"status"`
+	Status      JobStatus  `json:"status"`
 	CreatedAt   time.Time  `json:"created_at"`
 	StartedAt   *time.Time `json:"started_at,omitempty"`
 	FinishedAt  *time.Time `json:"finished_at,omitempty"`
@@ -32,7 +32,7 @@ type Job struct {
 
 // Queue holds pending, running, and recently completed jobs.
 // Jobs execute sequentially in a single worker goroutine.
-type Queue struct {
+type JobQueue struct {
 	mu         sync.Mutex
 	jobs       []Job
 	notify     chan struct{}
@@ -41,11 +41,11 @@ type Queue struct {
 }
 
 // New creates a queue that retains up to maxHistory completed jobs.
-func New(maxHistory int) *Queue {
+func NewJobQueue(maxHistory int) *JobQueue {
 	if maxHistory <= 0 {
 		maxHistory = 20
 	}
-	q := &Queue{
+	q := &JobQueue{
 		notify:     make(chan struct{}, 1),
 		maxHistory: maxHistory,
 	}
@@ -54,20 +54,20 @@ func New(maxHistory int) *Queue {
 }
 
 // Submit adds a job to the queue and returns its ID.
-func (q *Queue) Submit(jobType, description string, fn func(context.Context) error) string {
+func (q *JobQueue) Submit(jobType, description string, fn func(context.Context) error) string {
 	id := generateID(jobType)
 	q.SubmitWithID(id, jobType, description, fn)
 	return id
 }
 
 // SubmitWithID adds a job with a specific ID (used for resuming interrupted jobs).
-func (q *Queue) SubmitWithID(id, jobType, description string, fn func(context.Context) error) {
+func (q *JobQueue) SubmitWithID(id, jobType, description string, fn func(context.Context) error) {
 	q.mu.Lock()
 	q.jobs = append(q.jobs, Job{
 		ID:          id,
 		Type:        jobType,
 		Description: description,
-		Status:      StatusPending,
+		Status:      JobPending,
 		CreatedAt:   time.Now(),
 		fn:          fn,
 	})
@@ -76,7 +76,7 @@ func (q *Queue) SubmitWithID(id, jobType, description string, fn func(context.Co
 }
 
 // Snapshot returns a copy of all jobs (pending, running, recently completed).
-func (q *Queue) Snapshot() []Job {
+func (q *JobQueue) Snapshot() []Job {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	out := make([]Job, len(q.jobs))
@@ -88,11 +88,11 @@ func (q *Queue) Snapshot() []Job {
 }
 
 // RunningJobID returns the ID of the currently running job, or empty string.
-func (q *Queue) RunningJobID() string {
+func (q *JobQueue) RunningJobID() string {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	for i := range q.jobs {
-		if q.jobs[i].Status == StatusRunning {
+		if q.jobs[i].Status == JobRunning {
 			return q.jobs[i].ID
 		}
 	}
@@ -101,7 +101,7 @@ func (q *Queue) RunningJobID() string {
 
 // Wait blocks until the job with the given ID is no longer running or pending.
 // It returns true if the job was found and reached a terminal state.
-func (q *Queue) Wait(id string) bool {
+func (q *JobQueue) Wait(id string) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	for {
@@ -109,7 +109,7 @@ func (q *Queue) Wait(id string) bool {
 		for i := range q.jobs {
 			if q.jobs[i].ID == id {
 				found = true
-				if q.jobs[i].Status == StatusDone || q.jobs[i].Status == StatusFailed {
+				if q.jobs[i].Status == JobDone || q.jobs[i].Status == JobFailed {
 					return true
 				}
 				break
@@ -123,7 +123,7 @@ func (q *Queue) Wait(id string) bool {
 }
 
 // Start launches the worker goroutine. It blocks until ctx is cancelled.
-func (q *Queue) Start(ctx context.Context) {
+func (q *JobQueue) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -134,11 +134,11 @@ func (q *Queue) Start(ctx context.Context) {
 	}
 }
 
-func (q *Queue) processNext(ctx context.Context) {
+func (q *JobQueue) processNext(ctx context.Context) {
 	q.mu.Lock()
 	idx := -1
 	for i := range q.jobs {
-		if q.jobs[i].Status == StatusPending {
+		if q.jobs[i].Status == JobPending {
 			idx = i
 			break
 		}
@@ -149,7 +149,7 @@ func (q *Queue) processNext(ctx context.Context) {
 	}
 
 	now := time.Now()
-	q.jobs[idx].Status = StatusRunning
+	q.jobs[idx].Status = JobRunning
 	q.jobs[idx].StartedAt = &now
 	job := q.jobs[idx]
 	q.mu.Unlock()
@@ -160,10 +160,10 @@ func (q *Queue) processNext(ctx context.Context) {
 	fin := time.Now()
 	q.jobs[idx].FinishedAt = &fin
 	if err != nil {
-		q.jobs[idx].Status = StatusFailed
+		q.jobs[idx].Status = JobFailed
 		q.jobs[idx].Error = err.Error()
 	} else {
-		q.jobs[idx].Status = StatusDone
+		q.jobs[idx].Status = JobDone
 	}
 	q.jobs[idx].fn = nil
 	q.prune()
@@ -177,18 +177,18 @@ func (q *Queue) processNext(ctx context.Context) {
 
 // prune removes old completed jobs beyond maxHistory, keeping at most
 // maxHistory non-pending/non-running entries.
-func (q *Queue) prune() {
+func (q *JobQueue) prune() {
 	if len(q.jobs) <= q.maxHistory {
 		return
 	}
 	kept := make([]Job, 0, len(q.jobs))
 	for _, j := range q.jobs {
-		if j.Status == StatusPending || j.Status == StatusRunning {
+		if j.Status == JobPending || j.Status == JobRunning {
 			kept = append(kept, j)
 		}
 	}
 	for _, j := range q.jobs {
-		if j.Status == StatusDone || j.Status == StatusFailed {
+		if j.Status == JobDone || j.Status == JobFailed {
 			if len(kept) >= q.maxHistory {
 				break
 			}
@@ -198,7 +198,7 @@ func (q *Queue) prune() {
 	q.jobs = kept
 }
 
-func (q *Queue) signal() {
+func (q *JobQueue) signal() {
 	select {
 	case q.notify <- struct{}{}:
 	default:

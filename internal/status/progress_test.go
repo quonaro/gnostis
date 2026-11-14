@@ -1,4 +1,4 @@
-package progress
+package status
 
 import (
 	"os"
@@ -9,7 +9,7 @@ import (
 )
 
 func TestProgressStateLifecycle(t *testing.T) {
-	p := New(db.OpenTestDB(t))
+	p := NewProgress(db.OpenTestDB(t))
 
 	if err := p.Start("test", 100); err != nil {
 		t.Fatalf("start failed: %v", err)
@@ -49,7 +49,7 @@ func TestProgressStateLifecycle(t *testing.T) {
 }
 
 func TestProgressFail(t *testing.T) {
-	p := New(db.OpenTestDB(t))
+	p := NewProgress(db.OpenTestDB(t))
 
 	_ = p.Start("test", 10)
 	_ = p.Fail(os.ErrClosed)
@@ -64,7 +64,7 @@ func TestProgressFail(t *testing.T) {
 }
 
 func TestProgressLoadMissing(t *testing.T) {
-	p := New(db.OpenTestDB(t))
+	p := NewProgress(db.OpenTestDB(t))
 
 	s, err := p.Load()
 	if err != nil {
@@ -84,7 +84,7 @@ func TestProgressLoadPreservesJobID(t *testing.T) {
 		t.Fatalf("insert progress row: %v", err)
 	}
 
-	p := New(sqlDB)
+	p := NewProgress(sqlDB)
 	s, err := p.Load()
 	if err != nil {
 		t.Fatalf("load failed: %v", err)

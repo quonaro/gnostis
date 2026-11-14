@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/quonaro/gnostis/internal/progress"
+	"github.com/quonaro/gnostis/internal/status"
 )
 
 // RebuildProject removes the existing index for a single project and reindexes it.
@@ -101,10 +101,10 @@ func (a *App) StartRebuildIndex(ctx context.Context) (string, error) {
 }
 
 // resumeInterruptedJob restarts a rebuild that was in progress or failed when
-// the previous process exited. It expects progress.Status to be Running or Error.
+// the previous process exited. It expects status.Status to be Running or Error.
 // Unlike RebuildProject/RebuildIndex, resume methods do NOT delete existing
 // chunks — the hash check in chunkFilesParallel skips already-processed files.
-func (a *App) resumeInterruptedJob(ctx context.Context, state progress.State) error {
+func (a *App) resumeInterruptedJob(ctx context.Context, state status.State) error {
 	slog.InfoContext(ctx, "resuming interrupted rebuild", "job_id", state.JobID, "project", state.Project)
 
 	prefix := jobPrefix(state.JobID)

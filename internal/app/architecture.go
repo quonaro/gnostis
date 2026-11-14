@@ -86,7 +86,10 @@ func (a *App) Architecture(ctx context.Context, projectName string) (*graph.Arch
 		})
 	}
 	sort.Slice(arch.Packages, func(i, j int) bool {
-		return arch.Packages[i].Files > arch.Packages[j].Files
+		if arch.Packages[i].Files != arch.Packages[j].Files {
+			return arch.Packages[i].Files > arch.Packages[j].Files
+		}
+		return arch.Packages[i].Name < arch.Packages[j].Name
 	})
 
 	// Hotspots
@@ -109,7 +112,15 @@ func (a *App) Architecture(ctx context.Context, projectName string) (*graph.Arch
 		}
 	}
 	sort.Slice(degrees, func(i, j int) bool {
-		return degrees[i].incoming+degrees[i].outgoing > degrees[j].incoming+degrees[j].outgoing
+		di := degrees[i].incoming + degrees[i].outgoing
+		dj := degrees[j].incoming + degrees[j].outgoing
+		if di != dj {
+			return di > dj
+		}
+		if degrees[i].node.Symbol != degrees[j].node.Symbol {
+			return degrees[i].node.Symbol < degrees[j].node.Symbol
+		}
+		return degrees[i].node.Path < degrees[j].node.Path
 	})
 	limit := 10
 	if len(degrees) < limit {

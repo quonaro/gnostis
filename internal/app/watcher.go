@@ -118,16 +118,18 @@ func (w *fileWatcher) addRecursive(root string) error {
 }
 
 func (w *fileWatcher) run() {
+	fw := w.watcher
+	ctx := w.ctx
 	for {
 		select {
-		case <-w.ctx.Done():
+		case <-ctx.Done():
 			return
-		case event, ok := <-w.watcher.Events:
+		case event, ok := <-fw.Events:
 			if !ok {
 				return
 			}
 			w.handleEvent(event)
-		case err, ok := <-w.watcher.Errors:
+		case err, ok := <-fw.Errors:
 			if !ok {
 				return
 			}

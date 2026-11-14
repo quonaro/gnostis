@@ -1,78 +1,86 @@
-# Gnostis
+# 🧠 Gnostis
 
-A local "second brain" for developers. Gnostis indexes your projects with tree-sitter-aware chunking, stores embeddings locally, and exposes semantic search and code-graph tools to AI agents through the Model Context Protocol (MCP).
+> A local code-intelligence MCP server — indexes your projects with tree-sitter chunking and embeddings, builds a call graph, and gives AI coding agents semantic search, graph analysis, and persistent memory tools over stdio and Streamable HTTP.
 
-## What it does
-
-- Watches configured directories and incrementally indexes changed files.
-- Splits code into symbol-level chunks (functions, types, methods, classes).
-- Stores embeddings locally using `chromem-go`; metadata lives in SQLite.
-- Works with any OpenAI-compatible `/embeddings` endpoint (Ollama, LM Studio, OpenAI, etc.).
-- Maintains a dedicated symbol index for fast exact symbol lookups.
-- Builds a call graph and exposes graph analysis: architecture overview, community detection (Louvain), dead code, path tracing, similar-file detection.
-- Provides a semantic memory store: agents can save, search, and read Markdown notes.
-- Serves MCP over **stdio** (managed by the editor) and **Streamable HTTP** at `/mcp`.
-- Multiple editor windows share a single primary instance via a stdio proxy — no extra configuration.
-
-## MCP tools
-
-- **Search & context:** `search`, `find_symbol`, `get_file_context`, `grep`, `list_files`, `directory_tree`, `get_recent_changes`, `find_similar`
-- **Indexing:** `list_projects`, `add_project`, `edit_project`, `remove_project`, `rebuild_project`, `rebuild_index`, `reindex_files`, `get_index_status`, `get_index_job`, `check_index_coverage`, `detect_changes`
-- **Graph:** `get_architecture`, `get_communities`, `graph_layout`, `trace_path`, `dead_code`
-- **Memory:** `memory_list`, `memory_read`, `memory_search`, `memory_write`, `rebuild_memory`
+Gnostis watches your configured projects, splits code into symbol-level chunks, stores embeddings locally (`chromem-go` + SQLite), and exposes everything through [Model Context Protocol](https://modelprotocol.io) tools. No dashboard, no cloud — everything stays on your machine.
 
 ---
 
-## Table of Contents
+## ✨ Features
 
-- [Prerequisites](#prerequisites)
-- [Quick start](#quick-start)
-  - [Option 1: `go run` (no install needed)](#option-1-go-run-no-install-needed)
-  - [Option 2: Pre-built binary](#option-2-pre-built-binary)
-  - [Option 3: Build from source](#option-3-build-from-source)
-- [Configuration](#configuration)
-  - [Environment variables](#environment-variables)
-  - [Example `.env` file](#example-env-file)
-- [Adding projects](#adding-projects)
-- [Connecting to your editor](#connecting-to-your-editor)
-  - [Cursor](#cursor)
-  - [Windsurf](#windsurf)
-  - [Claude Desktop](#claude-desktop)
-- [HTTP MCP endpoint](#http-mcp-endpoint)
-- [How it works](#how-it-works)
-- [Logs](#logs)
-- [Development](#development)
+- 🔍 **Semantic code search** — `search`, `find_symbol`, `get_file_context`, `find_similar`
+- 🌳 **Symbol-aware chunking** — tree-sitter extraction of functions, types, methods, classes
+- 🕸️ **Call graph analysis** — architecture overview, Louvain communities, dead code, path tracing, force-directed layout
+- 🧠 **Agent memory** — Markdown notes with semantic recall (`memory_*` tools)
+- 📡 **stdio + Streamable HTTP** — served at `/mcp`; extra editor windows auto-proxy to the primary instance
+- 🗄️ **Local-first storage** — SQLite for metadata, `chromem-go` for vectors, files under `~/.gnostis/data`
+- 🔌 **Any OpenAI-compatible embeddings endpoint** — Ollama, LM Studio, OpenAI, etc.
+- ⚙️ **Env-only config** — `GS_*` variables, `.env` support, `~`/`${VAR}` interpolation
 
 ---
 
-## Prerequisites
+## 🛠️ MCP Tools
 
-### 1. Go (for `go run` and building from source)
+Gnostis exposes 30 tools to AI assistants:
 
-- A recent Go toolchain with CGO enabled (`CGO_ENABLED=1`) — see `go.mod` for the required version.
-- A C compiler (`gcc` on Linux, Xcode CLT on macOS).
+### Search & Context
 
-### 2. An embeddings endpoint
+| Tool                  | Description                                             |
+| --------------------- | ------------------------------------------------------- |
+| 🔍 `search`           | Semantic search across indexed code chunks              |
+| 🎯 `find_symbol`      | Exact symbol lookup by name/kind                        |
+| 📄 `get_file_context` | File content with surrounding symbol context            |
+| 🧬 `find_similar`     | Find near-duplicate code blocks (simhash)             |
+| 📁 `list_files`       | List indexed files with filters                         |
+| 🌲 `directory_tree`   | Directory tree of an indexed project                    |
+| 🕐 `get_recent_changes` | Recently changed files since last index               |
+| 🔡 `grep`             | Regex search over indexed files                         |
 
-Gnostis talks to any OpenAI-compatible `/embeddings` API. For local embeddings:
+### Projects & Indexing
 
-```bash
-# Ollama
-ollama pull nomic-embed-text
-ollama serve
-```
+| Tool                  | Description                                    |
+| --------------------- | ---------------------------------------------- |
+| 📋 `list_projects`    | List configured projects                       |
+| ➕ `add_project`      | Add a project directory                        |
+| ✏️ `edit_project`     | Update extensions/include/exclude rules        |
+| ➖ `remove_project`   | Remove a project                               |
+| 🔁 `rebuild_project`  | Full reindex of one project                    |
+| 🏗️ `rebuild_index`    | Rebuild the whole index                        |
+| ♻️ `reindex_files`    | Reindex specific files                         |
+| 📊 `get_index_status` | Projects, chunks, provider, progress, job queue |
+| ⏳ `get_index_job`    | Status of a specific indexing job              |
+| 🩺 `check_index_coverage` | Verify which paths are covered by the index |
+| 🕵️ `detect_changes`   | Detect changed/added/removed files             |
 
-Or use OpenAI, OpenRouter, LocalAI, LM Studio, etc. See [Configuration](#configuration) for the endpoint settings.
+### Graph
+
+| Tool                | Description                                             |
+| ------------------- | ------------------------------------------------------- |
+| 🏛️ `get_architecture` | High-level architecture of the call graph            |
+| 🫂 `get_communities`  | Louvain communities: tightly coupled symbol groups  |
+| 🕸️ `graph_layout`     | Force-directed layout (nodes, edges, positions)     |
+| 🛤️ `trace_path`       | Trace call paths between two symbols                |
+| 💀 `dead_code`        | Symbols with no detected callers                    |
+
+### Memory
+
+| Tool              | Description                                  |
+| ----------------- | -------------------------------------------- |
+| 📝 `memory_list`  | List memory notes                            |
+| 📖 `memory_read`  | Read a memory note                           |
+| 🔎 `memory_search`| Semantic search over memory notes and dialogues   |
+| ✍️ `memory_write` | Create/update a memory note                  |
+| 🔄 `rebuild_memory` | Rebuild the memory vector index            |
+
+Memory notes are Markdown files under `~/.gnostis/data/memory` — agents can persist decisions, conventions, and context across sessions.
 
 ---
 
-## Quick start
+## 🚀 Quick Start
 
-Gnostis runs as a **stdio MCP server** — the MCP client (Cursor, Windsurf, Claude Desktop) manages the process lifecycle.
+Gnostis runs as a **stdio MCP server** — the MCP client manages the process lifecycle.
 
 ### Option 1: `go run` (no install needed)
-
-Add to your MCP client config:
 
 ```json
 {
@@ -85,121 +93,53 @@ Add to your MCP client config:
 }
 ```
 
-### Option 2: Pre-built binary
+### Option 2: `go install`
 
 ```bash
 go install github.com/quonaro/gnostis/cmd/gnostis@latest
 ```
 
-Then add to your MCP client config:
-
 ```json
-{
-  "mcpServers": {
-    "gnostis": {
-      "command": "gnostis"
-    }
-  }
-}
+{ "mcpServers": { "gnostis": { "command": "gnostis" } } }
 ```
 
 ### Option 3: Build from source
 
 ```bash
-git clone https://github.com/quonaro/GnostisMCP.git
-cd GnostisMCP
-
-# Build with version stamp
-COMMIT=$(git rev-parse --short HEAD)
-go build \
-  -ldflags="-s -w -X main.version=$COMMIT -X github.com/quonaro/gnostis/internal/mcp.version=$COMMIT" \
-  -o gnostis ./cmd/gnostis
-
-# Move to PATH
-sudo mv gnostis /usr/local/bin/
-# or: mv gnostis ~/.local/bin/
+git clone https://github.com/quonaro/gnostis.git && cd gnostis
+go build -o gnostis ./cmd/gnostis
 ```
 
-Then add to your MCP client config (use the full path if not in `PATH`):
+### Prerequisites
 
-```json
-{
-  "mcpServers": {
-    "gnostis": {
-      "command": "gnostis"
-    }
-  }
-}
-```
+- Go 1.26+ with CGO (see `go.mod`)
+- An OpenAI-compatible embeddings endpoint (e.g. `ollama serve` + `ollama pull nomic-embed-text`)
 
 ---
 
-## Configuration
+## ⚙️ Configuration
 
-Gnostis is configured entirely through **environment variables**. No YAML/JSON config file is needed. See `.env.example` for a documented template — paths support `~` and `${VAR}` / `${VAR:-default}` expansion.
+Env-only — no config file. Copy `.env.example` to `.env` or pass vars via the client's `env` block:
 
-On first run, Gnostis creates:
+| Variable                  | Default                  | Description                     |
+| ------------------------- | ------------------------ | ------------------------------- |
+| `GS_LOG_LEVEL`            | `info`                   | `debug` / `info` / `warn` / `error` |
+| `GS_DATA_DIR`             | `~/.gnostis/data`        | SQLite DB, vectors, memory notes |
+| `GS_EMBEDDINGS_URL`       | `http://localhost:7997/v1` | Embeddings API endpoint       |
+| `GS_EMBEDDINGS_MODEL`     | `BAAI/bge-small-en-v1.5` | Embedding model name            |
+| `GS_EMBEDDINGS_API_KEY`   | _(empty)_                | API key if required             |
+| `GS_EMBEDDINGS_BATCH_SIZE`| `32`                     | Texts per embedding request     |
+| `GS_EMBEDDINGS_MAX_CHARS` | `8000`                   | Chunk truncation limit          |
+| `GS_WEB_PORT`             | `7878`                   | HTTP MCP endpoint port (`/mcp`) |
 
-- `~/.gnostis/data/` — SQLite database, vector store, memory notes.
-- `~/.gnostis/gnostis.log` — log file.
-
-### Environment variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `GS_LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
-| `GS_DATA_DIR` | `~/.gnostis/data` | Data directory (SQLite DB, vectors, memory notes) |
-| `GS_EMBEDDINGS_URL` | `http://localhost:7997/v1` | Embeddings API endpoint (OpenAI-compatible) |
-| `GS_EMBEDDINGS_MODEL` | `BAAI/bge-small-en-v1.5` | Embedding model name |
-| `GS_EMBEDDINGS_API_KEY` | _(empty)_ | API key for the embeddings endpoint |
-| `GS_EMBEDDINGS_BATCH_SIZE` | `32` | Max texts per embedding request |
-| `GS_EMBEDDINGS_MAX_CHARS` | `8000` | Max characters of a chunk sent for embedding |
-| `GS_WEB_PORT` | `7878` | Port for the HTTP MCP endpoint (`/mcp`) |
-
-### Example `.env` file
-
-```bash
-# .env
-GS_LOG_LEVEL=info
-GS_EMBEDDINGS_URL=http://localhost:11434/v1
-GS_EMBEDDINGS_MODEL=nomic-embed-text
-GS_EMBEDDINGS_BATCH_SIZE=32
-GS_WEB_PORT=7878
-```
-
-Load it before starting Gnostis (`set -a; source .env; set +a`) or pass variables via the `env` block in your MCP client config.
-
----
-
-## Adding projects
-
-Projects are stored in the SQLite database under `GS_DATA_DIR`. The simplest way to add one is via the `add_project` MCP tool from your AI editor:
+### Adding projects
 
 ```
 add_project(path="/home/user/projects/myapp", name="myapp")
 rebuild_project(project="myapp")
 ```
 
-Project settings include `extensions`, `include`/`exclude` globs, and `max_file_size_mb`. To change them:
-
-```
-edit_project(name="myapp", exclude=["vendor/**", "**/*_test.go"])
-rebuild_project(project="myapp")
-```
-
-To remove:
-
-```
-remove_project(name="myapp")
-```
-
----
-
-## Connecting to your editor
-
-### Cursor
-
-Add to `~/.cursor/mcp.json` (or `.cursor/mcp.json` in your project root):
+### Connecting your editor
 
 ```json
 {
@@ -215,131 +155,48 @@ Add to `~/.cursor/mcp.json` (or `.cursor/mcp.json` in your project root):
 }
 ```
 
-### Windsurf
-
-Add to your Windsurf MCP config (`~/.codeium/windsurf/mcp_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "gnostis": {
-      "command": "gnostis",
-      "env": {
-        "GS_EMBEDDINGS_URL": "http://localhost:11434/v1",
-        "GS_EMBEDDINGS_MODEL": "nomic-embed-text"
-      }
-    }
-  }
-}
-```
-
-### Claude Desktop
-
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `~/.config/claude/claude_desktop_config.json` (Linux):
-
-```json
-{
-  "mcpServers": {
-    "gnostis": {
-      "command": "/usr/local/bin/gnostis",
-      "env": {
-        "GS_EMBEDDINGS_URL": "http://localhost:11434/v1",
-        "GS_EMBEDDINGS_MODEL": "nomic-embed-text"
-      }
-    }
-  }
-}
-```
-
-> **Tip:** If using `go run` instead of a pre-built binary, replace `"command": "gnostis"` with `"command": "go"` and add `"args": ["run", "github.com/quonaro/gnostis/cmd/gnostis@latest"]`.
-
-> **Multiple editor windows:** When a second Gnostis process starts, it detects the primary instance via a file lock on the data directory and automatically runs as a stdio proxy, forwarding all MCP messages to the primary over HTTP. All editor windows share a single index — no extra configuration needed.
+Works with Cursor, Windsurf, Claude Desktop — anything that speaks MCP stdio. The HTTP endpoint `http://localhost:7878/mcp` is also available for HTTP-capable clients.
 
 ---
 
-## HTTP MCP endpoint
-
-In addition to stdio, the primary instance serves MCP over **Streamable HTTP** at:
+## 🧱 Project Structure
 
 ```
-http://localhost:7878/mcp
-```
-
-The port is configurable via `GS_WEB_PORT`. This endpoint is what the stdio proxies forward to, and it can also be used directly by MCP clients that support remote/HTTP transports.
-
----
-
-## How it works
-
-1. The MCP client spawns `gnostis` as a stdio subprocess (or connects to `http://localhost:7878/mcp` directly).
-2. Gnostis loads config from environment variables.
-3. It opens the SQLite database and vector store from `GS_DATA_DIR`.
-4. Background workers index configured projects, watch for file changes, and build the call graph.
-5. MCP tools serve semantic search, symbol lookup, graph analysis, and memory notes.
-6. When the client closes stdin (or the process is stopped), Gnostis shuts down gracefully.
-
----
-
-## Logs
-
-Logs are written to:
-
-- `~/.gnostis/gnostis.log` (file)
-- stderr (console)
-
-Set `GS_LOG_LEVEL=debug` for detailed embedding request logs and model activity.
-
----
-
-## Development
-
-### Prerequisites
-
-- Go (see `go.mod`)
-- [Air](https://github.com/air-verse/air) for live reload (`go install github.com/air-verse/air@latest`)
-- `lota` task runner (see `lota.yaml`)
-
-### Development workflow
-
-```bash
-# Run backend with live reload
-lota dev
-```
-
-### Build
-
-```bash
-COMMIT=$(git rev-parse --short HEAD)
-go build \
-  -ldflags="-s -w -X main.version=$COMMIT -X github.com/quonaro/gnostis/internal/mcp.version=$COMMIT" \
-  -o gnostis ./cmd/gnostis
-```
-
-### Test & lint
-
-```bash
-go build ./... && go vet ./... && go test ./...
-```
-
-### Project structure
-
-```
-cmd/gnostis/          Entry points (main.go, native.go, lock.go, log_handler.go)
+cmd/gnostis/          Entry points, file lock, log handler, stdio proxy
 internal/
-  app/                Application orchestration, indexing, projects, watcher, HTTP server
+  app/                Orchestration: indexing, projects, watcher, HTTP server
   chunker/            Tree-sitter symbol extraction
-  config/             Environment-based config loading
+  config/             GS_* env loading
   db/                 SQLite metadata store
   directory/          Per-directory indexing rules
-  embeddings/         OpenAI-compatible embeddings provider
+  embeddings/         OpenAI-compatible provider
   graph/              Call graph, layout, communities
   indexer/            File walking and filtering
-  mcp/                MCP server and tool handlers
-  memory/             Agent memory notes (Markdown + vector index)
-  search/             Search orchestration and reranking
+  mcp/                MCP server + tool handlers
+  memory/             Agent memory notes
+  search/             Search orchestration
   simhash/            Similar-file detection
   status/             Job queue, progress, coverage, stats
   store/              chromem-go vector persistence
   symbol/             Symbol index
-tests live next to the code they cover (*_test.go)
 ```
+
+---
+
+## 💻 Development
+
+```bash
+lota dev        # live reload (air)
+go test ./...   # tests
+go vet ./...    # vet
+```
+
+Pre-commit hooks (trailing whitespace, golangci-lint) are configured in `.pre-commit-config.yaml`.
+
+## 🤝 Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## 📄 License
+
+MIT — see [LICENSE](LICENSE). Note: the `chromem-go` dependency is MPL-2.0; all other dependencies are MIT/BSD-style permissive licenses.

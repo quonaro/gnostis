@@ -40,4 +40,7 @@ const (
 	defaultBatchSize = 32
 	defaultMaxChars  = 8000
 	defaultWebPort   = 7878
+
+	// DefaultMemoryDataDir is where memory notes (Markdown files) are stored.
+	DefaultMemoryDataDir = "${HOME}/.gnostis/data/memory"
 )

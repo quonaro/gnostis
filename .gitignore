@@ -39,3 +39,4 @@ tmp/
 
 # Web frontend source
 web/node_modules/
+bin/

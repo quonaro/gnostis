@@ -24,6 +24,7 @@ const (
 	errReasonReadFailed      = "read_failed"
 	errReasonInvalidRegex    = "invalid_regex"
 	errReasonSearchFailed    = "search_failed"
+	errReasonMemoryNotEnabled = "memory_not_enabled"
 )
 
 func (s *Server) isPathAllowed(path string) bool {

@@ -12,6 +12,7 @@ import (
 	"github.com/quonaro/gnostis/internal/coverage"
 	"github.com/quonaro/gnostis/internal/graph"
 	"github.com/quonaro/gnostis/internal/jobs"
+	"github.com/quonaro/gnostis/internal/memory"
 	"github.com/quonaro/gnostis/internal/progress"
 	"github.com/quonaro/gnostis/internal/project"
 	"github.com/quonaro/gnostis/internal/search"
@@ -66,24 +67,26 @@ func SetVersion(v string) {
 
 // Server wraps the mcp-go server and exposes Gnostis tools.
 type Server struct {
-	mu       sync.RWMutex
-	server   *mcpserver.MCPServer
-	version  string
-	engine   Searcher
-	symbols  Finder
-	indexer  Indexer
-	projects []project.Project
+	mu            sync.RWMutex
+	server        *mcpserver.MCPServer
+	version       string
+	engine        Searcher
+	symbols       Finder
+	indexer       Indexer
+	memoryManager *memory.Manager
+	projects      []project.Project
 }
 
 // New creates and configures the MCP server.
-func New(engine Searcher, symbols Finder, indexer Indexer, projects []project.Project) *Server {
+func New(engine Searcher, symbols Finder, indexer Indexer, memoryManager *memory.Manager, projects []project.Project) *Server {
 	slog.Info("creating mcp server", "name", serverName, "version", version)
 	s := &Server{
-		version:  version,
-		engine:   engine,
-		symbols:  symbols,
-		indexer:  indexer,
-		projects: projects,
+		version:       version,
+		engine:        engine,
+		symbols:       symbols,
+		indexer:       indexer,
+		memoryManager: memoryManager,
+		projects:      projects,
 	}
 
 	s.server = mcpserver.NewMCPServer(
@@ -147,6 +150,11 @@ func (s *Server) registerTools() {
 	s.server.AddTool(getArchitectureTool(), mcp.NewTypedToolHandler(s.getArchitecture))
 	s.server.AddTool(findSimilarTool(), mcp.NewTypedToolHandler(s.findSimilar))
 	s.server.AddTool(graphLayoutTool(), mcp.NewTypedToolHandler(s.graphLayout))
+	s.server.AddTool(memorySearchTool(), mcp.NewTypedToolHandler(s.memorySearch))
+	s.server.AddTool(memoryWriteTool(), mcp.NewTypedToolHandler(s.memoryWrite))
+	s.server.AddTool(memoryListTool(), mcp.NewTypedToolHandler(s.memoryList))
+	s.server.AddTool(memoryReadTool(), mcp.NewTypedToolHandler(s.memoryRead))
+	s.server.AddTool(rebuildMemoryTool(), mcp.NewTypedToolHandler(s.rebuildMemory))
 }
 
 func findSymbolTool() mcp.Tool {

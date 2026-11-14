@@ -27,6 +27,7 @@ func FromEnv() (Config, error) {
 		Web: Web{
 			Port: envIntOr("GS_WEB_PORT", defaultWebPort),
 		},
+		IndexWorkers: envIntOr("GS_INDEX_WORKERS", 0),
 	}
 
 	cfg.LogLevel = strings.ToLower(cfg.LogLevel)
@@ -53,6 +54,10 @@ func validate(cfg *Config) error {
 
 	if cfg.Embeddings.BatchSize <= 0 {
 		return fmt.Errorf("embeddings batch_size must be positive")
+	}
+
+	if cfg.IndexWorkers < 0 {
+		return fmt.Errorf("index_workers must not be negative")
 	}
 
 	return nil

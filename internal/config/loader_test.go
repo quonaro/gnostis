@@ -60,4 +60,19 @@ func TestFromEnvDefaults(t *testing.T) {
 	if cfg.DataDir != "/tmp/gnostis-test-data" {
 		t.Errorf("data_dir = %q, want /tmp/gnostis-test-data", cfg.DataDir)
 	}
+	if cfg.IndexWorkers != 0 {
+		t.Errorf("default index_workers = %d, want 0 (auto)", cfg.IndexWorkers)
+	}
+}
+
+func TestFromEnvIndexWorkers(t *testing.T) {
+	t.Setenv("GS_INDEX_WORKERS", "2")
+
+	cfg, err := FromEnv()
+	if err != nil {
+		t.Fatalf("FromEnv: %v", err)
+	}
+	if cfg.IndexWorkers != 2 {
+		t.Errorf("index_workers = %d, want 2", cfg.IndexWorkers)
+	}
 }

@@ -282,7 +282,7 @@ func (a *App) initialIndex(ctx context.Context) error {
 	a.cleanupDeletedFiles(ctx)
 	var firstErr error
 	for i, dir := range a.dirs {
-		if err := indexDirectoryWithRetry(ctx, a.ProgressWriter, dir, a.projects[i], a.indexer, a.chunker, a.provider, a.store, a.symbolIndex, a.callGraph, a.simhashIndex, a.embeddingCache, a.progress, a.indexingStats); err != nil {
+		if err := indexDirectoryWithRetry(ctx, a.ProgressWriter, dir, a.projects[i], a.indexer, a.chunker, a.provider, a.store, a.symbolIndex, a.callGraph, a.simhashIndex, a.embeddingCache, a.cfg.IndexWorkers, a.progress, a.indexingStats); err != nil {
 			slog.ErrorContext(ctx, "index project failed, continuing to next", "project", a.projects[i].Name, "error", err)
 			if firstErr == nil {
 				firstErr = fmt.Errorf("index %s: %w", dir.Path, err)

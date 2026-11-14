@@ -24,7 +24,7 @@ func (a *App) RebuildProject(ctx context.Context, name string) error {
 			return fmt.Errorf("delete project chunks: %w", err)
 		}
 
-		if err := indexDirectoryWithRetry(ctx, a.ProgressWriter, a.dirs[i], p, a.indexer, a.chunker, a.provider, a.store, a.symbolIndex, a.callGraph, a.simhashIndex, a.embeddingCache, a.progress, a.indexingStats); err != nil {
+		if err := indexDirectoryWithRetry(ctx, a.ProgressWriter, a.dirs[i], p, a.indexer, a.chunker, a.provider, a.store, a.symbolIndex, a.callGraph, a.simhashIndex, a.embeddingCache, a.cfg.IndexWorkers, a.progress, a.indexingStats); err != nil {
 			return fmt.Errorf("index %s: %w", a.dirs[i].Path, err)
 		}
 
@@ -148,7 +148,7 @@ func (a *App) resumeRebuildProject(ctx context.Context, name string) error {
 
 		slog.InfoContext(ctx, "resuming project rebuild", "project", p.Name, "path", a.dirs[i].Path)
 
-		if err := indexDirectoryWithRetry(ctx, a.ProgressWriter, a.dirs[i], p, a.indexer, a.chunker, a.provider, a.store, a.symbolIndex, a.callGraph, a.simhashIndex, a.embeddingCache, a.progress, a.indexingStats); err != nil {
+		if err := indexDirectoryWithRetry(ctx, a.ProgressWriter, a.dirs[i], p, a.indexer, a.chunker, a.provider, a.store, a.symbolIndex, a.callGraph, a.simhashIndex, a.embeddingCache, a.cfg.IndexWorkers, a.progress, a.indexingStats); err != nil {
 			return fmt.Errorf("index %s: %w", a.dirs[i].Path, err)
 		}
 
@@ -177,7 +177,7 @@ func (a *App) resumeRebuildIndex(ctx context.Context) error {
 	var firstErr error
 	for i, dir := range a.dirs {
 		slog.InfoContext(ctx, "indexing directory", "path", dir.Path, "project", a.projects[i].Name)
-		if err := indexDirectoryWithRetry(ctx, a.ProgressWriter, dir, a.projects[i], a.indexer, a.chunker, a.provider, a.store, a.symbolIndex, a.callGraph, a.simhashIndex, a.embeddingCache, a.progress, a.indexingStats); err != nil {
+		if err := indexDirectoryWithRetry(ctx, a.ProgressWriter, dir, a.projects[i], a.indexer, a.chunker, a.provider, a.store, a.symbolIndex, a.callGraph, a.simhashIndex, a.embeddingCache, a.cfg.IndexWorkers, a.progress, a.indexingStats); err != nil {
 			slog.ErrorContext(ctx, "index project failed, continuing to next", "project", a.projects[i].Name, "error", err)
 			if firstErr == nil {
 				firstErr = fmt.Errorf("index %s: %w", dir.Path, err)

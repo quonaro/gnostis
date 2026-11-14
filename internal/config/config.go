@@ -2,10 +2,11 @@ package config
 
 // Config holds the complete application configuration loaded from environment variables.
 type Config struct {
-	LogLevel   string
-	DataDir    string
-	Embeddings Embeddings
-	Web        Web
+	LogLevel     string
+	DataDir      string
+	Embeddings   Embeddings
+	Web          Web
+	IndexWorkers int
 }
 
 // Embeddings configures the OpenAI-compatible embedding endpoint.
@@ -40,6 +41,8 @@ const (
 	defaultBatchSize = 32
 	defaultMaxChars  = 8000
 	defaultWebPort   = 7878
+
+	// defaultIndexWorkers (0) means runtime.NumCPU().
 
 	// DefaultMemoryDataDir is where memory notes (Markdown files) are stored.
 	DefaultMemoryDataDir = "${HOME}/.gnostis/data/memory"

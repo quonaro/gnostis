@@ -35,10 +35,10 @@ var indexBackoff = []time.Duration{
 	4 * time.Second,
 }
 
-func indexDirectoryWithRetry(ctx context.Context, out io.Writer, dir directory.Directory, proj directory.Project, idx *indexer.Indexer, ch *chunker.Chunker, provider embeddings.Provider, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, cache map[string][]float32, prog *status.Progress, indexingStats *status.Stats) error {
+func indexDirectoryWithRetry(ctx context.Context, out io.Writer, dir directory.Directory, proj directory.Project, idx *indexer.Indexer, ch *chunker.Chunker, provider embeddings.Provider, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, cache map[string][]float32, workers int, prog *status.Progress, indexingStats *status.Stats) error {
 	var lastErr error
 	for attempt := 0; attempt < maxIndexRetries; attempt++ {
-		err := indexDirectory(ctx, out, dir, proj, idx, ch, provider, st, sym, cg, si, cache, prog, indexingStats)
+		err := indexDirectory(ctx, out, dir, proj, idx, ch, provider, st, sym, cg, si, cache, workers, prog, indexingStats)
 		if err == nil {
 			return nil
 		}
@@ -59,7 +59,7 @@ func indexDirectoryWithRetry(ctx context.Context, out io.Writer, dir directory.D
 	return lastErr
 }
 
-func indexDirectory(ctx context.Context, out io.Writer, dir directory.Directory, proj directory.Project, idx *indexer.Indexer, ch *chunker.Chunker, provider embeddings.Provider, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, cache map[string][]float32, prog *status.Progress, indexingStats *status.Stats) error {
+func indexDirectory(ctx context.Context, out io.Writer, dir directory.Directory, proj directory.Project, idx *indexer.Indexer, ch *chunker.Chunker, provider embeddings.Provider, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, cache map[string][]float32, workers int, prog *status.Progress, indexingStats *status.Stats) error {
 	if prog != nil {
 		_ = prog.Start(proj.Name, 0)
 	}
@@ -83,7 +83,7 @@ func indexDirectory(ctx context.Context, out io.Writer, dir directory.Directory,
 		)
 	}
 
-	changed := chunkFilesParallel(ctx, files, ch, st, sym, cg, si, bar, prog)
+	changed := chunkFilesParallel(ctx, files, ch, st, sym, cg, si, workers, bar, prog)
 
 	totalChunks := 0
 	for _, fc := range changed {
@@ -190,10 +190,12 @@ func progressAdd(bar *progressbar.ProgressBar, prog *status.Progress, n int, mu 
 	}
 }
 
-func chunkFilesParallel(ctx context.Context, files []indexer.FileInfo, ch *chunker.Chunker, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, bar *progressbar.ProgressBar, prog *status.Progress) []fileChunks {
-	workers := runtime.NumCPU()
-	if workers < 2 {
-		workers = 2
+func chunkFilesParallel(ctx context.Context, files []indexer.FileInfo, ch *chunker.Chunker, st store.VectorStore, sym *symbol.Index, cg *graph.Graph, si *simhash.Index, workers int, bar *progressbar.ProgressBar, prog *status.Progress) []fileChunks {
+	if workers <= 0 {
+		workers = runtime.NumCPU()
+		if workers < 2 {
+			workers = 2
+		}
 	}
 	sem := make(chan struct{}, workers)
 	var wg sync.WaitGroup

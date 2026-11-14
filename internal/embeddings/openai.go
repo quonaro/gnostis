@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -72,6 +73,11 @@ func (p *openAICompatible) embedBatch(ctx context.Context, texts []string) ([][]
 		if len(t) > p.maxChars {
 			slog.WarnContext(ctx, "truncating embedding input", "original_len", len(t), "max_chars", p.maxChars)
 			t = t[:p.maxChars]
+		}
+		// Some backends (e.g. TEI) reject requests whose inputs are all
+		// empty after trimming; keep a placeholder so indices stay aligned.
+		if strings.TrimSpace(t) == "" {
+			t = " "
 		}
 		truncated[i] = t
 	}

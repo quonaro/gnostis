@@ -22,7 +22,7 @@ func (a *App) rebuildDirectory(ctx context.Context, dirPath string) error {
 	dir := directory.FromConfig(config.Directory{Path: dirPath, Name: filepath.Base(dirPath)})
 	proj := directory.NewProject(filepath.Base(dirPath), dirPath)
 
-	if err := indexDirectoryWithRetry(ctx, a.ProgressWriter, dir, proj, a.indexer, a.chunker, a.provider, a.store, a.symbolIndex, a.callGraph, a.simhashIndex, a.embeddingCache, nil, a.indexingStats); err != nil {
+	if err := indexDirectoryWithRetry(ctx, a.ProgressWriter, dir, proj, a.indexer, a.chunker, a.provider, a.store, a.symbolIndex, a.callGraph, a.simhashIndex, a.embeddingCache, a.cfg.IndexWorkers, nil, a.indexingStats); err != nil {
 		return fmt.Errorf("index directory: %w", err)
 	}
 

@@ -16,7 +16,7 @@ var envPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\
 func FromEnv() (Config, error) {
 	cfg := Config{
 		LogLevel: envOr("GS_LOG_LEVEL", defaultLogLevel),
-		DataDir:  envOr("GS_DATA_DIR", InterpolateEnv(defaultDataDir)),
+		DataDir:  InterpolateEnv(envOr("GS_DATA_DIR", defaultDataDir)),
 		Embeddings: Embeddings{
 			URL:       envOr("GS_EMBEDDINGS_URL", defaultURL),
 			Model:     envOr("GS_EMBEDDINGS_MODEL", defaultModel),

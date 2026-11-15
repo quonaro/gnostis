@@ -65,6 +65,23 @@ func TestFromEnvDefaults(t *testing.T) {
 	}
 }
 
+func TestFromEnvDataDirInterpolation(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home dir")
+	}
+	t.Setenv("GS_DATA_DIR", "${HOME}/.gnostis/data")
+
+	cfg, err := FromEnv()
+	if err != nil {
+		t.Fatalf("FromEnv: %v", err)
+	}
+	want := filepath.Join(home, ".gnostis", "data")
+	if cfg.DataDir != want {
+		t.Errorf("data_dir = %q, want %q", cfg.DataDir, want)
+	}
+}
+
 func TestFromEnvIndexWorkers(t *testing.T) {
 	t.Setenv("GS_INDEX_WORKERS", "2")
 
